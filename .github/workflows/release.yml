@@ -1,0 +1,31 @@
+name: Release
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Tag matches VERSION in dmrdash.py
+        run: |
+          v=$(sed -n 's/^VERSION = "\(.*\)"/\1/p' dmrdash.py)
+          [ "v$v" = "$GITHUB_REF_NAME" ] || { echo "tag $GITHUB_REF_NAME but dmrdash.py says $v"; exit 1; }
+      - run: python3 -m unittest discover -s tests
+      - name: Build
+        run: |
+          mkdir -p dist/stage/dmrdash
+          cp -r dmrdash.py index.html dmrdash.service dmrdash.conf.example install.sh \
+                README.md LICENSE NOTICE licenses dist/stage/dmrdash/
+          tar -czf dist/dmrdash.tar.gz -C dist/stage dmrdash
+          cp install.sh dist/install.sh
+          packaging/build-deb.sh
+          (cd dist && sha256sum dmrdash.tar.gz install.sh dmrdash_*_all.deb > SHA256SUMS)
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" --generate-notes dist/dmrdash.tar.gz dist/install.sh dist/dmrdash_*_all.deb dist/SHA256SUMS

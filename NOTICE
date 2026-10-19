@@ -1,0 +1,17 @@
+dmrdash
+Copyright (c) 2026 Joel Calado (CT7BLE). MIT licence: see LICENSE.
+
+index.html embeds subsets of two fonts, each under the SIL Open Font License 1.1:
+
+- "Callsign": a subset of Saira Bold with the barred zero as default.
+  Copyright 2020 The Saira Project Authors (https://github.com/Omnibus-Type/Saira).
+  Licence: licenses/Saira-OFL.txt
+
+- "VFO Timer": a subset of DSEG7 Classic Bold, renamed because "DSEG" is a
+  Reserved Font Name. Copyright (c) 2020 keshikan (https://www.keshikan.net).
+  Licence: licenses/DSEG-OFL.txt
+
+The fonts stay under the OFL; the MIT licence covers the rest of the code.
+
+Not affiliated with BrandMeister.
+DMR ID names come from the RadioID database file installed with DMRHost.

@@ -7,9 +7,12 @@ managed with a SelfCare API key, which never leaves this process.
 
 Standard library only; all state is kept in memory. The one exception is talkgroup
 presets, a small JSON file written only when a preset is saved or deleted.
+
+https://github.com/jcalado/dmrdash - MIT licence
 """
 
 import collections
+import hmac
 import json
 import os
 import re
@@ -23,7 +26,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 CONF_PATH = os.environ.get("DMRDASH_CONF", "/etc/dmrdash.conf")
 HERE = os.path.dirname(os.path.abspath(__file__))
 BM_API = "https://api.brandmeister.network/v2"
-USER_AGENT = "dmrdash/1.0"
+VERSION = "1.0.0"
+USER_AGENT = "dmrdash/" + VERSION
 
 DEFAULTS = {
     "device_id": 0,
@@ -35,6 +39,7 @@ DEFAULTS = {
     "lastheard_size": 50,
     "bm_poll_seconds": 60,
     "allowed_hosts": [],
+    "pin": "",  # when set, talkgroup changes need it (sent as X-Dmrdash-Pin)
 }
 
 
@@ -43,6 +48,7 @@ def load_conf():
     with open(CONF_PATH) as f:
         conf.update(json.load(f))
     conf["device_id"] = int(conf["device_id"])
+    conf["pin"] = str(conf["pin"] or "")
     return conf
 
 
@@ -525,10 +531,12 @@ def snapshot():
         profile = BM["profile"] or {}
         return {
             "now": time.time(),
+            "version": VERSION,
             "device_id": CONF["device_id"],
             "hostname": os.uname().nodename,
             "ip": local_ip(),
             "can_manage": bool(CONF["api_key"]),
+            "pin": bool(CONF["pin"]),
             "host": dict(STATE["host"]),
             "modem": dict(STATE["modem"]),
             "network": dict(STATE["network"]),
@@ -547,6 +555,24 @@ def snapshot():
             "tg_names": names,
             "presets": [dict(p) for p in PRESETS],
         }
+
+
+PIN_FAILS = collections.deque(maxlen=5)  # times of the last wrong PINs
+
+
+def pin_check(given):
+    """None when the change may go ahead, else (status, body). Five wrong PINs in a minute lock changes for that minute."""
+    if not CONF["pin"]:
+        return None
+    now = time.time()
+    with LOCK:
+        if len(PIN_FAILS) == PIN_FAILS.maxlen and now - PIN_FAILS[0] < 60:
+            return 429, {"error": "Too many wrong PINs. Try again in a minute."}
+        if given and hmac.compare_digest(given.encode(), CONF["pin"].encode()):
+            return None
+        if given:
+            PIN_FAILS.append(now)
+    return 401, {"error": "Wrong PIN" if given else "PIN required", "pin": True}
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -598,6 +624,9 @@ class Handler(BaseHTTPRequestHandler):
         if self.path != "/api/bm" or self.headers.get("X-Dmrdash") != "1" \
                 or not (self.headers.get("Content-Type") or "").startswith("application/json"):
             return self.send(400, {"error": "bad request"})
+        denied = pin_check(self.headers.get("X-Dmrdash-Pin") or "")
+        if denied:
+            return self.send(*denied)
         try:
             length = min(int(self.headers.get("Content-Length") or 0), 4096)
             body = json.loads(self.rfile.read(length) or b"{}")

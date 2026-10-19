@@ -1,0 +1,23 @@
+#!/bin/sh
+set -e
+CONF=/etc/dmrdash.conf
+if [ "$1" = configure ]; then
+  id dmrdash >/dev/null 2>&1 || useradd --system --no-create-home --shell /usr/sbin/nologin dmrdash
+  if [ ! -f "$CONF" ]; then
+    install -m 0640 -g dmrdash /usr/share/doc/dmrdash/dmrdash.conf.example "$CONF"
+    for ini in /etc/MMDVM.ini /etc/mmdvmhost /etc/MMDVMHost.ini; do
+      [ -r "$ini" ] || continue
+      ID=$(awk -F= '/^\[/{s=$0} s=="[General]" && $1=="Id"{gsub(/[^0-9]/,"",$2); print $2; exit}' "$ini")
+      [ -n "$ID" ] && sed -i "s/\"device_id\": 0,/\"device_id\": $ID,/" "$CONF" && break
+    done
+    echo "dmrdash: add your SelfCare API key (and optionally a PIN) to $CONF, then: sudo systemctl restart dmrdash"
+  fi
+  chown root:dmrdash "$CONF" && chmod 0640 "$CONF"
+  # a unit left by install.sh would shadow the packaged one
+  if grep -q '^Description=DMRHost dashboard' /etc/systemd/system/dmrdash.service 2>/dev/null; then
+    rm -f /etc/systemd/system/dmrdash.service
+  fi
+  systemctl daemon-reload
+  systemctl enable dmrdash >/dev/null 2>&1
+  systemctl restart dmrdash
+fi

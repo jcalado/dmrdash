@@ -1,6 +1,7 @@
 {
-  "device_id": 268051301,
+  "device_id": 0,
   "api_key": "",
+  "pin": "",
   "listen": "0.0.0.0",
   "port": 8080
 }

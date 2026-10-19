@@ -1,0 +1,8 @@
+#!/bin/sh
+set -e
+if [ "$1" = purge ]; then
+  rm -f /etc/dmrdash.conf
+  rm -rf /var/lib/dmrdash
+  userdel dmrdash >/dev/null 2>&1 || true
+fi
+systemctl daemon-reload >/dev/null 2>&1 || true
