@@ -1,0 +1,32 @@
+[Unit]
+Description=DMRHost dashboard
+# no ordering on dmrhost.service: its packaged unit is After=multi-user.target, which made a boot-time cycle
+# that systemd broke by dropping this job. The dashboard only follows the journal, so it can start first.
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=dmrdash
+Group=dmrdash
+SupplementaryGroups=systemd-journal
+ExecStart=/usr/bin/python3 -I /opt/dmrdash/dmrdash.py
+Restart=always
+RestartSec=5
+MemoryMax=80M
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+LockPersonality=yes
+# talkgroup presets live here (written only when a preset is saved or deleted)
+StateDirectory=dmrdash
+StateDirectoryMode=0750
+
+[Install]
+WantedBy=multi-user.target

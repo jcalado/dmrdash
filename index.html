@@ -1,0 +1,1142 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>DMRHost</title>
+<style>
+/* Readout faces, both subset and inlined so the page needs no external assets.
+   "Callsign": Saira Bold (wght 700, wdth 100) subset with the barred zero as default, Copyright 2020 The Saira Project Authors
+   (https://github.com/Omnibus-Type/Saira), SIL OFL 1.1.
+   "VFO Timer": subset of DSEG7 Classic Bold, Copyright (c) 2017 keshikan (http://www.keshikan.net), SIL OFL 1.1;
+   renamed because "DSEG" is a Reserved Font Name. License text: https://openfontlicense.org */
+@font-face { font-family: "Callsign"; font-weight: 800; font-display: block;
+  src: url(data:font/woff2;base64,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) format("woff2"); }
+@font-face { font-family: "VFO Timer"; font-weight: 700; font-display: block;
+  src: url(data:font/woff2;base64,d09GMgABAAAAAALwAAwAAAAACSgAAAKjAAB1wgAAAAAAAAAAAAAAAAAAAAAAAAAABmAANAgEEQgKinCHQwE2AiQDMAsaAAQgBYJkByAbkAYIjtFjRyKXC4zxOPJlxQO1H+vtfkVMI55IZBJJpxOSVYakkdAgBYau2eTihbo/Py7fSXHwX5N1kLYmMC0UMi1B9dKEP+4d//bUP8kTT+SvZV1AY2q6X20bUyzANYC7zrswkMAC7LJtSbCtRzEKsTI7lsh+bZRnbtgthTp20hCXx8OnxYAFUZ3BGxvc3NhLF8K8BTGZDbtZkNIcF43jWERW6oYTqB9vHMmR8NarKWEhpfQsgIlYByCkJIJm0A+sgLAPEF4AOaAUFQq5QilXKcWKRCyZSyZGhCSyApVGee6X7e053VScb3lk+uBodsWx3pfhXdYscqBhvSoyjjeWal+S1XnRfSpbDL21luIieknpdJ9Axcv6a6BA0Mss9PNS40gjaEj1CtEIMC74A3eBQR3YuUVnW5+Px4eXO1dHJxscxir/hd3I8Nvuo/MxLGb2P5Ppzux8mY0Je3DHfya+XL8wmRULraExM4Jo6IPHKuj9vT8ESYsvVxWPj3L8spF7BQhBMR1z9DMhJHMDjI7a3E3NhSMKTpcLDQAJuAZmx89HOGyjw38JeWhv9nsLt45jqc6xLo055q5bxoeb3Jtu2i3r+LW2fWLIdt1Rfz5ecnBX5LCxzGmL+ybTcDZ48jqeBfz7nyhLB8T7zCaoRRA4MHKQyJYOVgiKfHNQgmcoA0EWhC2mDugH65QzmAURzeaQShGhh6wZAa3swlXkFOAEjgo6NVJR7YrKjJumcsO2qEK/m2eXBr1JpSfCYyQihPDVQXKJGEjJKPCoUR2RMZJCMmioGen9ehIiSIgAQRAvUkZGWjECBRJrrOJ/FsBALICaiJE3qk0ZCiFlZFRE9FJoKAkFCoLgJnwGWCZljvcbyPaqIUEChImglR4v/wROES81wRI=) format("woff2"); }
+:root {
+  --panel: #1d2023; --panel-2: #24282c; --panel-3: #2c3136; --rule: #3a4046; --rule-2: #4a5158; --row: #2f3439;
+  --legend: #b3bac2; --legend-dim: #8d959e; --white: #eef1f3;
+  --lcd: #e4e0cc; --lcd-ink: #17190f; --lcd-dim: #5c5946; --lcd-rule: #bdb79c; --lcd-tx: #f0d9d2; --lcd-tx-ink: #a3191f;
+  --tx: #e5484d; --rx: #35b46a; --busy: #f0a020; --off: #464c52;
+  --tx-text: #ff9b9e; --rx-text: #8fe0b0; --fail-text: #ff8a8d; --alarm-bg: #3a1e20; --alarm-text: #ffd2d3;
+  --mine: #2b2422; --danger-bg: #4a2326;
+  --readout: "Callsign", ui-monospace, "SF Mono", monospace;
+  --timer: "VFO Timer", ui-monospace, monospace;
+  --mono: ui-monospace, "SF Mono", "Cascadia Mono", "Roboto Mono", Menlo, Consolas, monospace;
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+* { box-sizing: border-box; }
+html { background: var(--panel); color-scheme: dark; }
+body { margin: 0; color: var(--white); font: 14px/1.4 var(--sans); }
+::selection { background: var(--legend); color: var(--panel); }
+:focus-visible { outline: 2px solid var(--white); outline-offset: 2px; }
+* { scrollbar-color: var(--rule-2) var(--panel); }
+[hidden] { display: none !important; }
+.wrap { max-width: 1240px; margin: 0 auto; padding: 0 16px 40px; }
+
+/* engraved legends */
+.lg { font: 600 11px/1 var(--sans); letter-spacing: .12em; text-transform: uppercase; color: var(--legend); }
+.lg.dim { color: var(--legend-dim); }
+h2.lg { margin: 0; }
+
+/* status strip */
+/* the strip spans the whole window on desktop; the content below stays in the centred column */
+.strip { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 24px; padding: 14px 24px; border-bottom: 1px solid var(--rule); }
+.station { display: flex; align-items: baseline; gap: 10px; margin-right: auto; }
+.station b { font: 700 18px/1 var(--mono); letter-spacing: .04em; }
+.station span { font: 13px/1 var(--mono); color: var(--legend-dim); }
+.leds { display: flex; flex-wrap: wrap; gap: 8px 20px; }
+.led { display: inline-flex; align-items: center; gap: 7px; }
+.led i, .state i { width: 9px; height: 9px; border-radius: 50%; background: var(--off); flex: none; }
+.led.on i { background: var(--rx); } .led.warn i { background: var(--busy); } .led.fail i { background: var(--tx); }
+.led.fail .lg { color: var(--fail-text); }
+.clock { font: 600 13px/1 var(--mono); color: var(--legend); font-variant-numeric: tabular-nums; white-space: pre; }
+
+.alarm { display: flex; align-items: flex-start; gap: 12px; margin-top: 14px; padding: 10px 14px; border: 1px solid var(--tx);
+  border-radius: 6px; background: var(--alarm-bg); color: var(--alarm-text); }
+.alarm b { color: #fff; }
+.alarm svg { margin-top: 2px; }
+
+/* VFO pair */
+.vfos { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 16px; }
+#vfo1, #vfo2 { min-width: 0; display: grid; }
+.vfo { background: var(--panel-2); border: 1px solid var(--rule); border-radius: 10px; padding: 12px; min-width: 0; }
+.vfo-head { display: flex; align-items: center; gap: 10px; margin: 0 2px 10px; min-height: 30px; }
+.ab { font: 700 12px/1 var(--mono); color: var(--panel); background: var(--legend); border-radius: 3px; padding: 3px 5px; }
+.state { margin-left: auto; display: inline-flex; align-items: center; gap: 7px; }
+.state i { width: 10px; height: 10px; }
+.state.rx i { background: var(--rx); } .state.tx i { background: var(--tx); }
+.state.rx .lg { color: var(--rx-text); } .state.tx .lg { color: var(--tx-text); }
+
+/* LCD, "talkgroup first": two readouts (who, then which TG), the person's details on one quiet line */
+.lcd { position: relative; background: var(--lcd); color: var(--lcd-ink); border: 1px solid #0f1112; border-radius: 6px;
+  padding: 14px 16px 12px; min-height: 168px; display: grid; grid-template-rows: auto auto 1fr auto; min-width: 0; }
+.lcd .top { display: flex; align-items: flex-start; gap: 12px; min-width: 0; }
+.lcd .call { font: 800 68px/.95 var(--readout); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lcd .side { display: grid; justify-items: end; gap: 7px; flex: none; }
+.lcd .timer { font: 700 26px/1 var(--timer); font-variant-numeric: tabular-nums; }
+.lcd .via { font: 700 11px/1 var(--mono); letter-spacing: .1em; border: 1.5px solid currentColor; border-radius: 3px; padding: 3px 5px; }
+.lcd .tg { margin-top: 14px; display: flex; align-items: baseline; gap: 10px; min-width: 0; }
+.lcd .tg .num { font: 800 32px/1 var(--readout); flex: none; }
+.lcd .tg .tgn { font: 600 16px/1.2 var(--sans); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lcd .tg .k { font: 700 10.5px/1 var(--sans); letter-spacing: .14em; color: var(--lcd-dim); flex: none; }
+.lcd .tg.msg { font: 600 15px/1.25 var(--sans); }
+.lcd .meta { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; margin-top: 12px; padding-top: 8px; border-top: 1px solid var(--lcd-rule);
+  font: 13px/1.3 var(--sans); color: var(--lcd-dim); min-width: 0; align-self: end; }
+.lcd .meta .op { font-weight: 600; font-size: 14px; color: var(--lcd-ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+.lcd .meta .id { font: 13px/1.3 var(--mono); }
+.lcd .meta .subs { display: inline-flex; gap: 12px; font: 13px/1.3 var(--mono); }
+/* inline, not flex, so the counts share the meta row's text baseline; the icon centres on the digits' cap height */
+.lcd .meta .subs svg.ic { width: 13px; height: 13px; vertical-align: calc(.5cap - .5em); margin-right: 4px; }
+.lcd .meta .alias { font-style: italic; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+.lcd.idle .call { color: var(--lcd-dim); font-size: 40px; padding-top: 6px; }
+.lcd.idle .call.none { color: var(--lcd-rule); letter-spacing: .12em; }
+.lcd.idle .via { color: var(--lcd-dim); }
+.lcd.idle .tg, .lcd.idle .meta .op { color: var(--lcd-dim); }
+.lcd.idle .tg .num { font-size: 24px; }
+.lcd.tx { background: var(--lcd-tx); }
+.lcd.tx .via { color: var(--lcd-tx-ink); }
+
+/* talkgroups: summary at rest, editor on demand */
+.mem { margin-top: 12px; }
+.mem:empty { display: none; }
+.pr .n, .er .n { font: 700 13px/1 var(--mono); }
+.vfo-foot { display: flex; align-items: center; gap: 10px; margin-top: 10px; min-height: 30px; }
+.vfo-foot .slotmsg { margin: 0 2px; flex: 1; min-width: 0; }
+.more { position: relative; margin-left: auto; flex: none; }
+.more-btn { width: 34px; padding: 0; justify-content: center; }
+.more-btn[aria-expanded="true"] { border-color: var(--legend); background: var(--panel); }
+.more-btn svg.ic { fill: currentColor; stroke: none; width: 16px; height: 16px; }
+.pop { position: absolute; right: 0; bottom: calc(100% + 6px); z-index: 10; width: max-content; min-width: 260px; max-width: min(380px, calc(100vw - 56px));
+  background: var(--panel); border: 1px solid var(--legend-dim); border-radius: 8px; padding: 10px; box-shadow: 0 10px 28px rgba(0, 0, 0, .5); }
+.pop h3 { margin: 0 4px 4px; }
+.pop ul { list-style: none; margin: 0; padding: 0; }
+.pr { display: grid; grid-template-columns: 7ch minmax(0, 1fr) auto; gap: 10px; align-items: center; min-height: 34px; padding: 0 4px; }
+.pr + .pr { border-top: 1px solid var(--row); }
+.pr .nm { color: var(--legend); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pr .meta { font: 12px/1 var(--mono); color: var(--legend-dim); white-space: nowrap; }
+.pr .meta svg.ic, .er .meta svg.ic { width: 13px; height: 13px; vertical-align: calc(.5cap - .5em); }
+.pr .meta svg.ic:not(:last-child), .er .meta svg.ic:not(:last-child) { margin-right: 6px; }
+.pr.q .n { color: var(--legend); }
+.pr.live .n, .pr.live .nm { color: var(--rx-text); }
+.pop .none { margin: 6px 4px; color: var(--legend-dim); font-size: 13px; }
+.pop .edit-btn { width: 100%; justify-content: center; margin-top: 8px; }
+/* presets (header) */
+.presets, .info { margin-left: 0; }
+.info-pop { width: min(380px, calc(100vw - 32px)); max-height: calc(100vh - 110px); overflow-y: auto; }
+.info-pop h3 + dl, .info-pop h3 + .ev { margin-top: 4px; }
+.info-pop dl, .info-pop .ev { padding: 0 4px 10px; }
+.info-pop .ev { margin-bottom: -6px; }
+.evhead { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.evhead .link { border: 0; background: none; padding: 2px 0; font: 600 12.5px/1 var(--sans); color: var(--legend); cursor: pointer;
+  text-decoration: underline; text-decoration-color: var(--rule-2); text-underline-offset: 3px; }
+.evhead .link:hover:not(:disabled) { color: var(--white); text-decoration-color: var(--legend); }
+.evhead .link:disabled { opacity: .45; cursor: default; text-decoration: none; }
+/* live log: a RAM-only tail of the DMRHost journal */
+.livelog { padding-bottom: 0; overflow: hidden; }
+.livelog .logbar { gap: 6px 12px; }
+.disclose { display: inline-flex; align-items: center; gap: 8px; border: 0; background: none; padding: 2px 0; cursor: pointer; color: var(--legend); }
+.disclose h2 { margin: 0; }
+.disclose .chev { width: 8px; height: 8px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(45deg) translate(-2px, -2px); transition: transform .15s ease-out; }
+.disclose[aria-expanded="false"] .chev { transform: rotate(-45deg); }
+.disclose:hover { color: var(--white); }
+#logjump { margin-left: auto; }
+.console { height: 300px; overflow-y: auto; background: var(--panel); border-top: 1px solid var(--rule); padding: 8px 14px;
+  font: 12px/1.55 var(--mono); color: var(--legend); white-space: pre-wrap; overflow-wrap: anywhere; overscroll-behavior: contain; }
+.console[hidden] { display: none; height: 0; padding-block: 0; border-top-width: 0; }
+/* .anim is added on the first click, so the restored state never animates on load */
+.console.anim { transition: height .2s ease-out, padding-block .2s ease-out, border-top-width .2s ease-out, display .2s allow-discrete; }
+@starting-style { .console.anim:not([hidden]) { height: 0; padding-block: 0; border-top-width: 0; } }
+.console:focus-visible { outline: 2px solid var(--white); outline-offset: -2px; }
+.console .ln { display: grid; grid-template-columns: max-content 1.5ch minmax(0, 1fr); gap: 10px; }
+.console .t { color: var(--legend-dim); }
+.console .lv { color: var(--legend-dim); }
+.console .W, .console .W + span { color: var(--busy); }
+.console .E, .console .E + span, .console .F, .console .F + span { color: var(--fail-text); }
+.console .D, .console .D + span { color: var(--legend-dim); }
+.console .gap { color: var(--legend-dim); font-style: italic; }
+@media (max-width: 820px) { .console { height: 240px; padding: 8px 10px; font-size: 11.5px; } .console .ln { grid-template-columns: max-content minmax(0, 1fr); gap: 8px; } .console .lv { display: none; } }
+@media (prefers-reduced-motion: reduce) { .disclose .chev, .console.anim { transition: none; } }
+.ev .rep { font-family: var(--mono); font-size: 11.5px; color: var(--legend-dim); white-space: nowrap; }
+.info .more-btn { position: relative; }
+.info .more-btn svg.ic { fill: none; stroke: currentColor; }
+.newdot { position: absolute; top: 4px; right: 4px; width: 7px; height: 7px; border-radius: 50%; background: var(--busy); box-shadow: 0 0 0 2px var(--panel-3); }
+.newdot[hidden] { display: none; }
+.pop.down { bottom: auto; top: calc(100% + 6px); min-width: 300px; }
+.prow { display: flex; align-items: stretch; gap: 4px; }
+.prow + .prow { border-top: 1px solid var(--row); }
+.papply { flex: 1; min-width: 0; display: grid; gap: 3px; text-align: left; border: 0; background: transparent; color: var(--white); padding: 8px 6px; border-radius: 5px; cursor: pointer; }
+.papply:hover:not(:disabled) { background: var(--panel-3); }
+.papply:disabled { cursor: default; }
+.papply .pn { font: 600 13.5px/1.2 var(--sans); display: flex; align-items: center; gap: 8px; }
+.papply .ps { font: 12px/1.35 var(--mono); color: var(--legend-dim); overflow-wrap: anywhere; }
+.prow.used .pn { color: var(--legend); }
+.tag { font: 700 9.5px/1 var(--sans); letter-spacing: .12em; text-transform: uppercase; color: var(--rx-text); border: 1px solid currentColor; border-radius: 3px; padding: 2px 4px; }
+.pdel { flex: none; align-self: center; min-width: 30px; height: 30px; border: 1px solid transparent; background: transparent; color: var(--legend-dim); border-radius: 5px; cursor: pointer; font: 600 12px/1 var(--sans); padding: 0 6px; }
+.pdel:hover:not(:disabled) { background: var(--danger-bg); color: var(--tx-text); }
+.pdel.confirm { border-color: var(--tx); background: var(--danger-bg); color: #fff; }
+.psave { display: grid; gap: 8px; margin-top: 8px; padding-top: 10px; border-top: 1px solid var(--rule); }
+.psave .phint { margin: 0; font-size: 12.5px; color: var(--legend-dim); }
+.psave input[type=text] { height: 34px; border-radius: 6px; border: 1px solid var(--legend); background: var(--panel-2); color: var(--white); font: 14px/1 var(--sans); padding: 0 10px; }
+.pchk { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--legend); cursor: pointer; }
+.pchk input { width: 16px; height: 16px; accent-color: var(--legend); margin: 0; }
+.prow-btns { display: flex; gap: 8px; }
+.gmsg { margin: 12px 2px 0; }
+/* log filter */
+.box > .logbar { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 12px; padding: 0 14px 8px; min-height: 26px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.chip { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 6px 0 10px; border-radius: 13px; border: 1px solid var(--legend-dim);
+  background: var(--panel-3); color: var(--white); font: 600 12.5px/1 var(--sans); cursor: pointer; }
+.chip:hover { border-color: var(--legend); }
+.chip svg.ic { width: 12px; height: 12px; color: var(--legend); }
+.chips .count { font: 12px/1 var(--mono); color: var(--legend-dim); }
+.kfilter { margin-left: auto; display: inline-flex; align-items: center; flex-wrap: wrap; justify-content: flex-end; gap: 8px 16px; }
+.seg { display: inline-flex; align-items: center; }
+.seg .lg { margin-right: 6px; }
+.seg button { min-width: 30px; height: 26px; padding: 0 7px; border: 1px solid var(--rule-2); background: var(--panel); color: var(--legend-dim);
+  font: 600 12px/1 var(--mono); cursor: pointer; transition: border-color .15s ease-out, background-color .15s ease-out, color .15s ease-out; }
+.seg button:first-of-type { border-radius: 5px 0 0 5px; }
+.seg button:last-of-type { border-radius: 0 5px 5px 0; }
+.seg button + button { margin-left: -1px; }
+.seg button:hover { color: var(--white); }
+.seg button[aria-checked="true"] { background: var(--panel-3); border-color: var(--legend); color: var(--white); position: relative; }
+.morerows { display: flex; align-items: center; gap: 12px; padding: 8px 14px 6px; border-top: 1px solid var(--row); font-size: 12.5px; color: var(--legend-dim); }
+.morerows[hidden] { display: none; }
+.morerows button { border: 0; background: none; padding: 0; font: 600 12.5px var(--sans); color: var(--legend); cursor: pointer; text-decoration: underline; text-decoration-color: var(--rule-2); text-underline-offset: 3px; }
+.morerows button:hover { color: var(--white); text-decoration-color: var(--legend); }
+.switch { display: inline-flex; align-items: center; gap: 8px; border: 0; background: none; padding: 4px 2px; cursor: pointer;
+  font: 600 11px/1 var(--sans); letter-spacing: .1em; text-transform: uppercase; color: var(--legend-dim); }
+.switch:hover, .switch[aria-checked="true"] { color: var(--legend); }
+.switch .track { position: relative; width: 28px; height: 16px; border-radius: 8px; border: 1px solid var(--rule-2); background: var(--panel); flex: none;
+  transition: background-color .15s ease-out, border-color .15s ease-out; }
+.switch .track i { position: absolute; top: 2px; left: 2px; width: 10px; height: 10px; border-radius: 50%; background: var(--legend-dim); transition: transform .15s ease-out, background-color .15s ease-out; }
+.switch[aria-checked="true"] .track { background: var(--panel-3); border-color: var(--legend); }
+.switch[aria-checked="true"] .track i { transform: translateX(12px); background: var(--white); }
+@media (prefers-reduced-motion: reduce) { .switch .track, .switch .track i { transition: none; } }
+.ksecs { display: inline-flex; align-items: center; gap: 5px; font: 12px/1 var(--mono); color: var(--legend-dim); }
+.ksecs[hidden] { display: none; }
+.ksecs input { width: 4.2em; height: 26px; border-radius: 5px; border: 1px solid var(--rule-2); background: var(--panel); color: var(--white);
+  font: 600 12.5px/1 var(--mono); padding: 0 4px 0 7px; }
+.ksecs input:hover { border-color: var(--legend-dim); }
+.ksecs input:focus { outline: 2px solid var(--white); outline-offset: 1px; border-color: var(--legend); }
+.flt { display: inline-grid; place-items: center; width: 22px; height: 22px; margin-left: 4px; vertical-align: -6px; border: 0; border-radius: 4px; padding: 0;
+  background: transparent; color: var(--legend-dim); cursor: pointer; opacity: 0; transition: opacity .12s ease-out; }
+#log tr:hover .flt, .flt:focus-visible { opacity: 1; }
+.flt:hover { color: var(--white); background: var(--rule-2); }
+.flt svg.ic { width: 13px; height: 13px; }
+@media (hover: none) { .flt { display: none; } }
+.editor { border: 1px solid var(--legend-dim); border-radius: 8px; padding: 10px; background: var(--panel); }
+.editor:focus { outline: none; }
+.editor:focus-visible { outline: 2px solid var(--white); outline-offset: 2px; }
+.editor h3 { margin: 0 4px 6px; }
+.editor .none { margin: 6px 4px; color: var(--legend-dim); font-size: 13px; }
+.er { display: grid; grid-template-columns: 7ch minmax(0, 1fr) auto; gap: 10px; align-items: center; min-height: 40px; padding-left: 4px; }
+.er + .er { border-top: 1px solid var(--row); }
+.er .nm { color: var(--legend); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.er .meta { font: 12px/1 var(--mono); color: var(--legend-dim); white-space: nowrap; }
+.er.busy { opacity: .6; }
+.er .rm { border: 1px solid var(--rule-2); background: transparent; color: var(--legend); border-radius: 5px; height: 30px; padding: 0 10px; font: 12.5px/1 var(--sans);
+  cursor: pointer; transition: border-color .15s ease-out, background-color .15s ease-out, color .15s ease-out; }
+.er .rm:hover:not(:disabled) { border-color: var(--tx); color: var(--tx-text); background: var(--danger-bg); }
+.er .rm:disabled { opacity: .45; cursor: default; }
+.editor .foot { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 8px; padding-top: 10px; border-top: 1px solid var(--rule); }
+.editor .foot .done { margin-left: auto; }
+.stopbox:empty { display: none; }
+.key { display: inline-flex; align-items: center; gap: 8px; min-height: 34px; padding: 0 10px; border-radius: 6px; border: 1px solid var(--rule-2);
+  background: var(--panel-3); color: var(--white); font: 13px/1 var(--sans); max-width: 100%;
+  transition: border-color .15s ease-out, background-color .15s ease-out, color .15s ease-out; }
+button { -webkit-user-select: none; user-select: none; }
+button.key { cursor: pointer; }
+button.key:hover:not(:disabled) { border-color: var(--legend); }
+button.key:disabled { opacity: .45; cursor: default; }
+.key.sm { min-height: 30px; padding: 0 10px; font-size: 12.5px; gap: 6px; }
+.key.act { color: var(--legend); font-weight: 600; letter-spacing: .03em; }
+.key.act.warn:hover:not(:disabled) { border-color: var(--tx); color: var(--tx-text); }
+.key.act.confirm { border-color: var(--tx); background: var(--danger-bg); color: #fff; }
+svg.ic { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+.addform { display: inline-flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.addform input { width: 7.5em; height: 34px; border-radius: 6px; border: 1px solid var(--legend); background: var(--lcd); color: var(--lcd-ink);
+  font: 700 14px/1 var(--mono); padding: 0 8px; }
+.addform input::placeholder { color: var(--lcd-dim); }
+.addform .hint { font-size: 12.5px; color: var(--legend); }
+.slotmsg { margin: 8px 2px 0; min-height: 18px; font-size: 13px; color: var(--legend); display: flex; gap: 10px; align-items: center; }
+.slotmsg.err { color: var(--fail-text); }
+.slotmsg button { border: 0; background: none; color: var(--white); font: 600 13px var(--sans); cursor: pointer; padding: 0; text-decoration: underline; text-underline-offset: 3px; }
+.mgmt-note { margin: 8px 2px 0; font-size: 12.5px; color: var(--legend-dim); }
+
+/* lower deck */
+.deck { margin-top: 16px; }
+.box { background: var(--panel-2); border: 1px solid var(--rule); border-radius: 10px; padding: 12px 0 4px; min-width: 0; }
+.box + .box { margin-top: 16px; }
+.box > .lg { display: block; padding: 0 14px 8px; }
+.tablewrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font: 13px/1.25 var(--mono); font-variant-numeric: tabular-nums; }
+th { text-align: left; padding: 6px 10px; font: 600 11px/1 var(--sans); letter-spacing: .1em; text-transform: uppercase; color: var(--legend-dim);
+  border-bottom: 1px solid var(--rule); white-space: nowrap; }
+th[data-k] { padding: 0; }
+th button { all: unset; box-sizing: border-box; display: flex; align-items: center; gap: 4px; width: 100%; padding: 6px 10px; cursor: pointer; }
+th.r button { justify-content: flex-end; }
+th button:hover, th[aria-sort] button { color: var(--white); }
+th button:focus-visible { outline: 2px solid var(--white); outline-offset: -2px; }
+th button .ar { font-size: 9px; }
+th button .ar:empty { display: none; }
+td { padding: 6px 10px; border-bottom: 1px solid var(--row); white-space: nowrap; }
+tbody tr:last-child td { border-bottom: 0; }
+.r { text-align: right; }
+td .nm { font-family: var(--sans); color: var(--legend); }
+a.ext { color: inherit; text-decoration: underline; text-decoration-color: transparent; text-underline-offset: 3px; transition: text-decoration-color .15s ease-out; }
+a.ext:hover, a.ext:focus-visible { text-decoration-color: currentColor; }
+td.tgn { font-family: var(--sans); color: var(--legend-dim); }
+.src { display: inline-block; min-width: 3.4em; box-sizing: border-box; text-align: center; margin-right: 6px; vertical-align: 1px;
+  font: 700 9px/1 var(--mono); letter-spacing: .08em; color: var(--legend-dim); border: 1px solid currentColor; border-radius: 3px; padding: 3px 3px 2px; }  /* extra top pad: the mono caps sit high in their line box */
+.src.rf { color: var(--tx); }
+tr.mine td { background: var(--mine); }
+/* hover lifts the row a step so its cells read across; mouse only, so taps on phones leave no sticky highlight */
+/* colour by caller: callsign in the caller's colour, and a light row wash */
+#log tr.cc td { background: color-mix(in srgb, var(--cc) 8%, var(--panel-2)); }
+#log tr.cc[data-by="call"] td:nth-child(3), #log tr.cc[data-by="tg"] td:nth-child(4), #log tr.cc[data-by="ts"] td:nth-child(2) { color: var(--cc); }
+#log tr.cc[data-by="tg"] td:nth-child(4) a.ext, #log tr.cc[data-by="ts"] td:nth-child(2) { font-weight: 700; }
+#log tr.cc.mine td { background: var(--mine); }
+@media (hover: hover) {
+  #log tr.cc:hover td { background: color-mix(in srgb, var(--cc) 15%, var(--panel-3)); }
+  #log tr:hover td { background: var(--panel-3); }
+  #log tr.mine:hover td { background: color-mix(in srgb, var(--mine) 82%, var(--legend)); }
+}
+.berw { color: var(--busy); } .berb { color: var(--fail-text); }
+.lost { color: var(--busy); }
+.empty { padding: 10px 14px 12px; color: var(--legend-dim); font-size: 13px; }
+dl { margin: 0; padding: 0 14px 10px; display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 12px; font-size: 13px; }
+dt { color: var(--legend-dim); } dd { margin: 0; overflow-wrap: anywhere; } dd.num { font-family: var(--mono); }
+.ev { list-style: none; margin: 0; padding: 0 14px 8px; font-size: 12.5px; }
+.ev li { display: flex; gap: 10px; padding: 5px 0; border-top: 1px solid var(--row); color: var(--legend); }
+.ev time { font-family: var(--mono); color: var(--legend-dim); flex: none; }
+.ev .W { color: var(--busy); } .ev .E, .ev .F { color: var(--fail-text); }
+
+@media (max-width: 820px) {
+  .vfos { grid-template-columns: minmax(0, 1fr); }
+  .lcd .call { font-size: 46px; }
+  .lcd.idle .call { font-size: 28px; }
+  .lcd .tg .num { font-size: 28px; } .lcd.idle .tg .num { font-size: 22px; }
+  .lcd { min-height: 150px; }
+  .station { margin-right: 0; width: 100%; }
+  .clock { margin-left: auto; }
+  .strip { padding: 14px 16px; }
+  .hide-s, td .nm { display: none; }
+  th, td, th button { padding: 6px 5px; } th button { gap: 2px; } table { font-size: 12px; } .src { margin-right: 4px; }
+}
+</style>
+</head>
+<body>
+  <header class="strip">
+    <div class="station"><b id="call">DMRHost</b><span id="devid"></span></div>
+    <div class="leds" id="leds"></div>
+    <div class="clock" id="clock"></div>
+    <div class="more presets" id="presets" data-slot="0"></div>
+    <div class="more info" id="info" data-slot="3">
+      <button class="key sm more-btn" id="ibtn" type="button" aria-expanded="false" aria-controls="pop3" aria-label="Station details and events" title="Station details and events"><span class="newdot" id="evdot" hidden></span></button>
+      <div class="pop down info-pop" id="pop3" hidden>
+        <h3 class="lg">Station</h3><dl id="station"></dl>
+        <div class="evhead"><h3 class="lg">Events</h3><button class="link" id="evclear" type="button">Clear</button></div><ul class="ev" id="events"></ul>
+      </div>
+    </div>
+  </header>
+<div class="wrap">
+  <div class="alarm" id="alarm" role="alert" hidden></div>
+  <div class="slotmsg gmsg" id="gmsg" aria-live="polite" hidden></div>
+
+  <main class="vfos"><div id="vfo1"></div><div id="vfo2"></div></main>
+
+  <section class="deck">
+    <div class="box">
+      <div class="logbar"><h2 class="lg">Last heard</h2><div class="chips" id="chips"></div>
+        <div class="kfilter"><div class="seg" id="rowsel" role="radiogroup" aria-label="Rows shown"><span class="lg dim" aria-hidden="true">Rows</span><button type="button" role="radio" data-rows="5">5</button><button type="button" role="radio" data-rows="10">10</button><button type="button" role="radio" data-rows="50">50</button></div>
+        <div class="seg" id="colsel" role="radiogroup" aria-label="Colour rows by"><span class="lg dim" aria-hidden="true">Colour</span><button type="button" role="radio" data-col="">Off</button><button type="button" role="radio" data-col="call" title="Each caller gets a colour">Caller</button><button type="button" role="radio" data-col="tg" title="Each talkgroup gets a colour">TG</button><button type="button" role="radio" data-col="ts" title="TS1 cyan, TS2 violet">TS</button></div>
+        <button class="switch" id="hidek" type="button" role="switch" aria-checked="false"><span class="track" aria-hidden="true"><i></i></span>Hide kerchunks</button>
+        <label class="ksecs" id="ksecs" hidden>&lt; <input id="kmax" type="number" min="0.5" max="10" step="0.5" inputmode="decimal" aria-label="Hide calls shorter than this many seconds"> s</label></div></div>
+      <div class="tablewrap"><table>
+        <thead id="loghead"><tr><th data-k="ts">Time</th><th data-k="slot">TS</th><th data-k="call">Callsign</th><th data-k="dst">Talkgroup</th><th class="hide-s" data-k="tgname">TG name</th><th class="r" data-k="duration">Dur</th><th class="r" data-k="ber">BER</th><th class="r hide-s" data-k="loss">Loss</th></tr></thead>
+        <tbody id="log"></tbody>
+      </table></div>
+      <div class="morerows" id="morerows" hidden></div>
+      <div class="empty" id="logempty" hidden>No calls since DMRHost started. Calls appear here as they finish.</div>
+    </div>
+    <div class="box livelog">
+      <div class="logbar">
+        <button class="disclose" id="logtoggle" type="button" aria-expanded="true" aria-controls="console"><span class="chev" aria-hidden="true"></span><h2 class="lg">Live log</h2></button>
+        <button class="key sm" id="logjump" type="button" hidden>Jump to live</button>
+      </div>
+      <div class="console" id="console" role="log" aria-label="DMRHost live log" tabindex="0"></div>
+    </div>
+  </section>
+</div>
+
+<script>
+"use strict";
+const ICONS = {
+  x: '<path d="M4 4l8 8M12 4l-8 8"/>',
+  plus: '<path d="M8 3v10M3 8h10"/>',
+  stop: '<rect x="4" y="4" width="8" height="8" rx="1"/>',
+  drop: '<path d="M3 8h10M6 5L3 8l3 3"/>',
+  edit: '<path d="M10.5 2.5l3 3L6 13H3v-3z"/>',
+  preset: '<path d="M3 4h10M3 8h10M3 12h6"/><path d="M12 11l1.5 1.5L16 10"/>',
+  info: '<circle cx="8" cy="8" r="6.3"/><path d="M8 7.3v4M8 4.9v.01"/>',
+  funnel: '<path d="M2.5 3h11l-4.2 5v4.5l-2.6 1.3V8z"/>',
+  more: '<circle cx="3.5" cy="8" r="1.1"/><circle cx="8" cy="8" r="1.1"/><circle cx="12.5" cy="8" r="1.1"/>',
+  warn: '<path d="M8 2l7 12H1z"/><path d="M8 7v3M8 12v.01"/>',
+  static: '<path d="M8 14V9.5"/><path d="M4 9.5h8L10.5 3h-5z"/>',
+  dynamic: '<path d="M10 2L5 8h6l-5 6"/>',
+  timed: '<circle cx="8" cy="8" r="6"/><path d="M8 4.5V8h3"/>',
+};
+function icon(name) {
+  const s = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  s.setAttribute("class", "ic"); s.setAttribute("viewBox", "0 0 16 16"); s.setAttribute("aria-hidden", "true");
+  s.innerHTML = ICONS[name];  // constant markup only
+  return s;
+}
+// DOM builder: data always lands as text nodes (talker aliases come off the air).
+function h(tag, attrs, ...kids) {
+  const el = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})) {
+    if (v == null || v === false) continue;
+    if (k === "class") el.className = v;
+    else if (k.startsWith("on")) el.addEventListener(k.slice(2), v);
+    else el.setAttribute(k, v === true ? "" : v);
+  }
+  for (const k of kids.flat(Infinity)) if (k != null && k !== false) el.append(k instanceof Node ? k : String(k));
+  return el;
+}
+const fill = (el, ...kids) => el.replaceChildren(...kids.flat(Infinity).filter((k) => k != null && k !== false));
+const $ = (id) => document.getElementById(id);
+
+let S = null, skew = 0, lastOk = 0, everOk = false;
+const ui = { draft: { 1: "", 2: "" }, editing: { 1: false, 2: false }, menu: { 1: false, 2: false }, hold: { 1: false, 2: false }, confirm: null, busy: null, msg: { 0: null, 1: null, 2: null }, filter: { call: null, tg: null }, psave: false, pdraft: "", pdrop: false };
+ui.menu[0] = false;
+
+const now = () => Date.now() / 1000 + skew;
+const hhmmss = (ts) => new Date(ts * 1000).toLocaleTimeString([], { hourCycle: "h23", hour: "2-digit", minute: "2-digit", second: "2-digit" });
+function ago(ts) {
+  const s = Math.max(0, now() - ts);
+  if (s < 60) return Math.floor(s) + "s";
+  if (s < 3600) return Math.floor(s / 60) + "m";
+  if (s < 86400) return Math.floor(s / 3600) + "h " + Math.floor((s % 3600) / 60) + "m";
+  return Math.floor(s / 86400) + "d " + Math.floor((s % 86400) / 3600) + "h";
+}
+const clockDur = (s) => Math.floor(s / 60) + ":" + String(Math.floor(s % 60)).padStart(2, "0");
+const logDur = (s) => s < 60 ? s.toFixed(1) + "s" : Math.floor(s / 60) + "m" + String(Math.round(s % 60)).padStart(2, "0");
+const tgName = (tg) => (S && S.tg_names && S.tg_names[String(tg)]) || "";
+const myRadioId = () => S ? Math.floor(S.device_id / 100) : 0;
+const callOf = (w) => (w && (w.callsign || w.id)) || "?";
+
+/* ---------------- health ---------------- */
+function health() {
+  const offline = everOk && now() - lastOk > 10;
+  const host = S.host.status, modem = S.modem.status, net = S.network.status;
+  const leds = [
+    ["DMRHost", host === "running" ? "on" : host === "starting" ? "warn" : "fail"],
+    ["Modem", modem === "ok" ? "on" : modem === "opening" ? "warn" : "fail"],
+    ["BM " + ((S.bm.device && S.bm.device.lastKnownMaster) || "link"),
+      net === "connected" ? "on" : (net === "connecting" || net === "unknown") ? "warn" : "fail"],
+  ];
+  let alarm = null;
+  if (offline) alarm = ["Dashboard can't reach the Pi", "Last update " + ago(lastOk) + " ago. Showing the last known state."];
+  else if (host === "stopped") alarm = ["DMRHost is stopped", "The hotspot isn't running. Check it with: systemctl status dmrhost"];
+  else if (modem === "error") alarm = ["Modem problem", "DMRHost reported a modem error. RF may not work; see Events below."];
+  else if (["login failed", "reconnecting", "down", "master closing"].includes(net))
+    alarm = ["BrandMeister link " + (net === "login failed" ? "login failed" : "lost"),
+      (net === "login failed" ? "The master rejected the hotspot password. " : "Retrying the master since " + ago(S.network.since) + " ago. ")
+      + "RF still works locally; nothing reaches the network."];
+  if (offline) leds.forEach((l) => { l[1] = "warn"; });
+  return { leds, alarm };
+}
+
+function renderStrip() {
+  const dev = S.bm.device || {};
+  $("call").textContent = dev.callsign || "DMRHost";
+  $("devid").textContent = S.device_id;
+  document.title = (dev.callsign || "DMRHost") + " · DMRHost";
+  const { leds, alarm } = health();
+  fill($("leds"), leds.map(([l, c]) => h("span", { class: "led " + c, title: l + ": " + c }, h("i"), h("span", { class: "lg" }, l))));
+  const al = $("alarm");
+  al.hidden = !alarm;
+  if (alarm) fill(al, icon("warn"), h("span", {}, h("b", {}, alarm[0]), " · ", alarm[1]));
+}
+
+/* ---------------- VFOs ---------------- */
+function subsFor(slot) {
+  const bm = S.bm, f = (t) => Number(t.slot) === slot;
+  return { st: bm.static.filter(f), dy: bm.dynamic.filter(f), ti: bm.timed.filter(f) };
+}
+
+// The readout face is proportional, so a long or wide callsign (VK2ABCD, MW0MWW) is measured and shrunk just enough to fit beside the timer.
+function fitCall(el) {
+  if (!el) return;
+  el.style.fontSize = "";
+  for (let i = 0; i < 8 && el.scrollWidth > el.clientWidth; i++) {
+    const size = parseFloat(getComputedStyle(el).fontSize);
+    if (size <= 30) break;
+    el.style.fontSize = Math.max(30, Math.min(size - 1, Math.floor(size * 0.98 * el.clientWidth / el.scrollWidth))) + "px";  // 2%: wide glyphs' ink overhangs their advance
+  }
+}
+const fitCalls = () => document.querySelectorAll(".lcd .call").forEach(fitCall);
+// the first render can measure fallback faces; refit once both readout faces (callsign, and the timer beside it) are in
+Promise.all([document.fonts.load('800 40px "Callsign"', "A"), document.fonts.load('700 26px "VFO Timer"', "0")]).then(fitCalls);
+addEventListener("resize", fitCalls);
+
+function lcdTg(c) {
+  const name = c.group ? tgName(c.dst) : pcName(c);
+  return h("div", { class: "tg" }, c.group ? null : h("span", { class: "k" }, "PRIVATE"),
+    h("span", { class: "num" }, c.dst), name ? h("span", { class: "tgn" }, name) : null);
+}
+
+function lcdLive(s) {
+  const tx = s.source === "rf", w = s.who || { id: s.src };
+  return h("div", { class: "lcd" + (tx ? " tx" : "") },
+    h("div", { class: "top" }, h("div", { class: "call" }, callOf(w)),
+      h("div", { class: "side" }, h("span", { class: "timer", "data-start": s.start }, clockDur(Math.max(0, now() - s.start))),
+        h("span", { class: "via" }, tx ? "RF" : "NET"))),
+    lcdTg(s),
+    h("div"),
+    h("div", { class: "meta" }, w.name ? h("span", { class: "op" }, w.name) : null, h("span", { class: "id", title: "DMR ID" }, w.id),
+      s.alias ? h("span", { class: "alias" }, "“" + s.alias + "”") : null));
+}
+
+function lcdIdle(n, subs) {
+  const last = S.lastheard.find((c) => c.slot === n);
+  const sub = (kind, list) => { const label = list.length + " " + kind + " talkgroup" + (list.length === 1 ? "" : "s");
+    return h("span", { role: "img", "aria-label": label, title: label }, icon(kind), list.length); };
+  const counts = h("span", { class: "subs" }, sub("static", subs.st), sub("dynamic", subs.dy), subs.ti.length ? sub("timed", subs.ti) : null);
+  return h("div", { class: "lcd idle" },
+    h("div", { class: "top" },
+      last ? h("div", { class: "call" }, callOf(last.who)) : h("div", { class: "call none", "aria-hidden": "true" }, "------"),
+      last ? h("div", { class: "side" }, h("span", { class: "via", title: "Last caller on this slot" }, "LAST")) : null),
+    last ? lcdTg(last) : h("div", { class: "tg msg" }, !everOk ? "Connecting…" : "Listening · no calls yet on this slot"),
+    h("div"),
+    h("div", { class: "meta" }, last && last.who && last.who.name ? h("span", { class: "op" }, last.who.name) : null,
+      last ? h("span", {}, ago(last.ts) + " ago") : null, counts));
+}
+
+const DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
+function schedule(t) {
+  const d = t.data || {}, hm = (s) => String(Math.floor(s / 3600)).padStart(2, "0") + ":" + String(Math.floor(s % 3600 / 60)).padStart(2, "0");
+  const days = DAYS.filter((k) => d[k]).map((k) => k[0].toUpperCase() + k.slice(1, 3));
+  return (days.length === 7 ? "daily" : days.join(" ")) + (d.start != null && d.stop != null ? " " + hm(d.start) + "–" + hm(d.stop) : "");
+}
+// subscription kind as an icon, named for screen readers, followed by its detail
+function subMeta(kind, label, detail) {
+  const ic = icon(kind); ic.setAttribute("role", "img"); ic.setAttribute("aria-label", label); ic.removeAttribute("aria-hidden");
+  return h("span", { class: "meta", title: label + (detail ? " · " + detail : "") }, ic, detail ? h("span", {}, detail) : null);
+}
+const dynLeft = (d) => { const left = d.timeout ? Math.ceil((d.timeout - now()) / 60) : null; return left == null ? "" : left > 0 ? left + "m left" : "ending"; };
+
+/* Talkgroup list and Edit live behind an overflow key at the panel's bottom right. */
+function tgMenu(n, subs) {
+  const s = S.slots[n], open = ui.menu[n], live = (tg) => s.active && s.group && String(s.dst) === String(tg);
+  const row = (tg, kind, label, detail, cls) => h("li", { class: "pr" + (live(tg) ? " live" : "") + (cls ? " " + cls : "") },
+    h("span", { class: "n" }, tg), h("span", { class: "nm" }, tgName(tg)), subMeta(kind, label, detail));
+  const rows = [
+    ...subs.st.map((t) => row(t.talkgroup, "static", "static")),
+    ...subs.dy.map((d) => row(d.talkgroup, "dynamic", "dynamic", dynLeft(d), "q")),
+    ...subs.ti.map((t) => row(t.talkgroup, "timed", "timed", schedule(t), "q")),
+    n === 1 && S.bm.autoStatic ? row(S.bm.autoStatic, "static", "auto-static", "auto", "q") : null,
+  ].filter(Boolean);
+  const count = subs.st.length + subs.dy.length + subs.ti.length;
+  return [
+    h("button", { class: "key sm more-btn", id: "more" + n, "aria-expanded": open ? "true" : "false", "aria-controls": "pop" + n,
+      "aria-label": "Talkgroups on TS" + n + " (" + count + ")", title: "Talkgroups on TS" + n,
+      onclick: () => { ui.menu[n] = !open; render(true); } }, icon("more")),
+    open ? h("div", { class: "pop", id: "pop" + n },
+      h("h3", { class: "lg" }, "Talkgroups · TS" + n),
+      rows.length ? h("ul", {}, rows) : h("p", { class: "none" }, "No talkgroups. Key up any TG to link it dynamically."),
+      S.can_manage ? h("button", { class: "key sm edit-btn", id: "edit" + n, disabled: !!ui.busy,
+        onclick: () => { ui.menu[n] = false; ui.editing[n] = true; render(true); focusId("ed" + n); } }, icon("edit"), "Edit talkgroups") : null) : null,
+  ];
+}
+function closeMenus(except) {
+  // only the closing menu re-renders, so a tap landing on the other slot's key isn't lost
+  for (const n of [0, 1, 2, 3]) if (ui.menu[n] && n !== except) {
+    ui.menu[n] = false;
+    if (n === 3) syncInfo();
+    else if (S) n ? fill($("menu" + n), tgMenu(n, subsFor(n))) : fill($("presets"), presetPanel());
+  }
+}
+document.addEventListener("pointerdown", (e) => { const m = e.target.closest && e.target.closest(".more"); closeMenus(m ? Number(m.dataset.slot) : -1); });
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape") return;
+  for (const n of [0, 1, 2, 3]) if (ui.menu[n]) { ui.menu[n] = false; if (n === 3) syncInfo(); render(true); focusId(["pbtn", "more1", "more2", "ibtn"][n]); }
+});
+
+/* On demand: the full list with spelled-out actions. */
+function tgEditor(n, subs) {
+  const busy = !!ui.busy;
+  const done = () => { ui.editing[n] = false; ui.draft[n] = ""; render(true); focusId("more" + n); };
+  const rows = [
+    ...subs.st.map((t) => h("div", { class: "er" + (ui.busy === "remove" + n + "/" + t.talkgroup ? " busy" : "") },
+      h("span", { class: "n" }, t.talkgroup), h("span", { class: "nm" }, tgName(t.talkgroup)),
+      h("button", { class: "rm", id: "rm" + n + "-" + t.talkgroup, disabled: busy, "aria-label": "Remove TG " + t.talkgroup + " from TS" + n,
+        onclick: () => removeTG(n, Number(t.talkgroup)) }, "Remove"))),
+    ...subs.dy.map((d) => h("div", { class: "er ro" }, h("span", { class: "n" }, d.talkgroup), h("span", { class: "nm" }, tgName(d.talkgroup)),
+      subMeta("dynamic", "dynamic", dynLeft(d)))),
+    ...subs.ti.map((t) => h("div", { class: "er ro", title: "Timed subscriptions are set in SelfCare" }, h("span", { class: "n" }, t.talkgroup), h("span", { class: "nm" }, tgName(t.talkgroup)),
+      subMeta("timed", "timed", schedule(t)))),
+  ];
+  const hint = h("span", { class: "hint", id: "hint" + n }, tgName(ui.draft[n].trim()));
+  const input = h("input", { id: "add" + n, type: "text", inputmode: "numeric", pattern: "[0-9]*", enterkeyhint: "done", placeholder: "TG number",
+    "aria-label": "Static talkgroup to add on TS" + n, autocomplete: "off", disabled: busy,
+    oninput: (e) => { ui.draft[n] = e.target.value; hint.textContent = tgName(e.target.value.trim()); } });
+  input.value = ui.draft[n];
+  const form = h("form", { class: "addform", novalidate: true, onsubmit: (e) => {
+      e.preventDefault();
+      const tg = Number(input.value.trim());
+      if (Number.isInteger(tg) && tg > 0) addTG(n, tg); else { hint.textContent = "Enter a talkgroup number"; input.focus(); }
+    } }, input, h("button", { class: "key", type: "submit", disabled: busy }, icon("plus"), "Add"), hint);
+  return h("div", { class: "editor", id: "ed" + n, tabindex: "-1", onkeydown: (e) => { if (e.key === "Escape") done(); } },
+    h("h3", { class: "lg" }, "Talkgroups · TS" + n),
+    rows.length ? rows : h("p", { class: "none" }, "No talkgroups on this slot."),
+    h("div", { class: "foot" }, form,
+      subs.dy.length ? h("button", { class: "key sm", id: "drop" + n, disabled: busy, title: "Remove all dynamic talkgroups on TS" + n,
+        onclick: () => act({ action: "dropDynamicGroups", slot: n }, n, "Dropped dynamic talkgroups on TS" + n) }, icon("drop"), "Drop dynamic") : null,
+      h("button", { class: "key sm done", type: "button", onclick: done }, "Done")));
+}
+function focusId(id) { const e = $(id); if (e) e.focus(); }
+
+/* Stop call acts on the current call, so it lives by the RX light and only exists during a network call. */
+function stopKey(n) {
+  const s = S.slots[n];
+  if (!S.can_manage || !s.active || s.source === "rf") return null;
+  const id = "stop" + n, confirming = ui.confirm === id;
+  return h("button", { class: "key sm act warn" + (confirming ? " confirm" : ""), id, disabled: !!ui.busy, title: "End the incoming network call on TS" + n,
+    onclick: () => {
+      if (!confirming) { ui.confirm = id; render(true); setTimeout(() => { if (ui.confirm === id) { ui.confirm = null; render(true); } }, 4000); return; }
+      ui.confirm = null; act({ action: "dropCallRoute", slot: n }, n, "Stopped the call on TS" + n);
+    } }, icon("stop"), confirming ? "Cut " + callOf(s.who) + "?" : "Stop call");
+}
+
+function vfoSkeleton(n) {
+  const host = $("vfo" + n);
+  if (host.firstChild) return;
+  fill(host, h("article", { class: "vfo", "aria-label": "Timeslot " + n },
+    h("div", { class: "vfo-head" }, h("span", { class: "ab" }, n === 1 ? "A" : "B"), h("h2", { class: "lg" }, "Timeslot " + n),
+      h("span", { id: "state" + n }), h("span", { class: "stopbox", id: "stopbox" + n })),
+    h("div", { id: "lcd" + n }),
+    h("div", { class: "mem", id: "mem" + n }),
+    h("div", { class: "vfo-foot" },
+      h("div", { class: "slotmsg", id: "msg" + n, "aria-live": "polite" }),
+      h("div", { class: "more", id: "menu" + n, "data-slot": n })),
+    h("div", { class: "mgmt-note", id: "note" + n })));
+  // a finger mid-tap on a control must not have it swapped out from under it
+  const art = host.firstChild;
+  art.addEventListener("pointerdown", () => { ui.hold[n] = true; });
+  const release = () => setTimeout(() => { ui.hold[n] = false; }, 400);
+  for (const ev of ["pointerup", "pointercancel", "pointerleave"]) art.addEventListener(ev, release);
+}
+
+function renderVfo(n, force) {
+  vfoSkeleton(n);
+  const s = S.slots[n], subs = subsFor(n), tx = s.active && s.source === "rf";
+  const st = $("state" + n);
+  st.className = "state" + (s.active ? (tx ? " tx" : " rx") : "");
+  fill(st, h("i"), h("span", { class: "lg" }, s.active ? (tx ? "TX" : "RX") : "Idle"));
+  fill($("lcd" + n), s.active ? lcdLive(s) : lcdIdle(n, subs));
+  fitCall($("lcd" + n).querySelector(".call"));
+  if (force || !ui.hold[n]) fill($("stopbox" + n), stopKey(n));
+  // the editor and the open menu freeze between forced renders so typing and reading aren't interrupted
+  if (force || !ui.editing[n]) fill($("mem" + n), ui.editing[n] ? tgEditor(n, subs) : null);
+  if (force || (!ui.menu[n] && !ui.hold[n])) fill($("menu" + n), tgMenu(n, subs));
+  const msg = ui.msg[n], m = $("msg" + n);
+  m.className = "slotmsg" + (msg && msg.err ? " err" : "");
+  fill(m, msg ? [msg.text, msg.undo ? h("button", { id: "undo" + n, onclick: msg.undo }, "Undo") : null] : []);
+  const note = $("note" + n);
+  note.hidden = S.can_manage || n !== 1;
+  note.textContent = "Read-only: add a SelfCare API key to /etc/dmrdash.conf to manage talkgroups.";
+}
+
+/* ---------------- log / station / events ---------------- */
+/* Sort state: column key and direction (1 asc, -1 desc). Default is newest first,
+   the order the server sends. Kept per viewer in localStorage when available. */
+const SORT_KEYS = {
+  ts: (c) => c.ts,
+  slot: (c) => c.slot,
+  call: (c) => String(callOf(c.who)),
+  dst: (c) => Number(c.dst),
+  tgname: (c) => (c.group ? tgName(c.dst) : pcName(c)) || null,
+  duration: (c) => c.duration,
+  ber: (c) => c.ber,
+  loss: (c) => c.loss,
+};
+let sort = { k: "ts", d: -1 };
+try { const v = JSON.parse(localStorage.getItem("dmrdash.sort")); if (v && SORT_KEYS[v.k] && (v.d === 1 || v.d === -1)) sort = v; } catch (e) {}
+
+function setSort(k) {
+  // Same column flips direction; a new column starts newest/largest first, except callsign and TG name (A-Z).
+  sort = sort.k === k ? { k, d: -sort.d } : { k, d: k === "call" || k === "tgname" ? 1 : -1 };
+  try { localStorage.setItem("dmrdash.sort", JSON.stringify(sort)); } catch (e) {}
+  if (S) renderLog();
+}
+
+function initLogHead() {
+  for (const th of document.querySelectorAll("#loghead th[data-k]")) {
+    const label = th.textContent;
+    fill(th, h("button", { type: "button", onclick: () => setSort(th.dataset.k) },
+      th.classList.contains("r") ? h("span", { class: "ar", "aria-hidden": "true" }) : null, label,
+      th.classList.contains("r") ? null : h("span", { class: "ar", "aria-hidden": "true" })));
+  }
+}
+
+function renderLogHead() {
+  for (const th of document.querySelectorAll("#loghead th[data-k]")) {
+    const on = th.dataset.k === sort.k;
+    if (on) th.setAttribute("aria-sort", sort.d === 1 ? "ascending" : "descending"); else th.removeAttribute("aria-sort");
+    th.querySelector(".ar").textContent = on ? (sort.d === 1 ? "▲" : "▼") : "";
+  }
+}
+
+function sortedLog() {
+  const key = SORT_KEYS[sort.k];
+  // Missing values (no BER, no duration) always go last; ties fall back to newest first.
+  const f = ui.filter;
+  const keep = (c) => (!f.call || String(callOf(c.who)) === f.call) && (!f.tg || (c.group && String(c.dst) === f.tg))
+    && !(ui.hideK && c.duration != null && c.duration < ui.kMax);  // kerchunks: keyed up for less than the cutoff (default 1 s, like WPSD)
+  return S.lastheard.map((c, i) => [c, key(c), i]).filter((r) => keep(r[0])).sort((a, b) => {
+    const x = a[1], y = b[1];
+    if (x == null || y == null) return x == null && y == null ? a[2] - b[2] : x == null ? 1 : -1;
+    const o = typeof x === "string" ? x.localeCompare(y, undefined, { sensitivity: "base", numeric: true }) : x - y;
+    return o ? o * sort.d : a[2] - b[2];
+  }).map((r) => r[0]);
+}
+
+// Known callsigns link to their QRZ.com page; bare DMR IDs stay plain text.
+function qrzLink(w, c) {
+  if (!w.callsign) return callOf(w);
+  return h("a", { class: "ext", id: "qrz" + c.slot + "-" + Math.round(c.ts * 1000), href: "https://www.qrz.com/db/" + encodeURIComponent(w.callsign),
+    target: "_blank", rel: "noopener noreferrer", title: "Open " + w.callsign + " on QRZ.com" }, w.callsign);
+}
+
+// Private calls name the called station in the TG name column, "CALLSIGN (Name)", when its DMR ID resolves.
+const pcName = (c) => { const to = c.to || {}; return to.callsign ? to.callsign + (to.name ? " (" + to.name + ")" : "") : ""; };
+function pcLink(c) {
+  const to = c.to || {};
+  if (!to.callsign) return null;
+  return [h("a", { class: "ext", id: "pc" + c.slot + "-" + Math.round(c.ts * 1000), href: "https://www.qrz.com/db/" + encodeURIComponent(to.callsign),
+    target: "_blank", rel: "noopener noreferrer", title: "Open " + to.callsign + " on QRZ.com" }, to.callsign), to.name ? " (" + to.name + ")" : null];
+}
+
+// Group calls link to BrandMeister Hoseline with the TG pre-subscribed (?subscribe=N). Hoseline only accepts TGs above 90.
+function hoseLink(c) {
+  if (!c.group || !(Number(c.dst) > 90)) return c.dst;
+  return h("a", { class: "ext", id: "hose" + c.slot + "-" + Math.round(c.ts * 1000), href: "https://hose.brandmeister.network/?subscribe=" + encodeURIComponent(c.dst),
+    target: "_blank", rel: "noopener noreferrer", title: "Listen to TG " + c.dst + " on BrandMeister Hoseline" }, c.dst);
+}
+
+// Row colours: 6 cyan/blue/violet/orchid tones, distinct from plain text and none near the LED red, amber or green.
+// Callers and talkgroups each get one: a key starts from a hash of itself (FNV-1a); if a key already in the log
+// holds that colour it takes the next free one. Assignments never change once made, so nothing shifts mid-session.
+const ROW_COLOURS = ["#5fc6de", "#5a9cff", "#9a9cff", "#bb8cff", "#e58bd6", "#dcb8ff"];
+const TS_COLOURS = { 1: "#5fc6de", 2: "#bb8cff" };  // fixed: TS1 cyan, TS2 violet
+function hashIdx(key) {
+  let x = 0x811c9dc5;
+  for (const ch of String(key)) x = Math.imul(x ^ ch.charCodeAt(0), 0x01000193);
+  return (x >>> 0) % ROW_COLOURS.length;
+}
+function colourer() {
+  const map = new Map();
+  return {
+    assign(keys) {  // oldest first
+      const inLog = new Set(keys), used = new Set();
+      for (const [k, i] of map) if (inLog.has(k)) used.add(i);
+      for (const k of keys) {
+        if (map.has(k)) continue;
+        const start = hashIdx(k), n = ROW_COLOURS.length;
+        let i = start;
+        for (let j = 0; j < n; j++) if (!used.has((start + j) % n)) { i = (start + j) % n; break; }
+        map.set(k, i); used.add(i);
+      }
+    },
+    get: (k) => ROW_COLOURS[map.get(k) ?? hashIdx(k)],
+  };
+}
+const byCaller = colourer(), byTg = colourer();
+function rowColour(c, call) {
+  if (ui.colBy === "call") return byCaller.get(call);
+  if (ui.colBy === "tg") return c.group ? byTg.get(String(c.dst)) : null;  // private calls stay plain
+  if (ui.colBy === "ts") return TS_COLOURS[c.slot] || null;
+  return null;
+}
+
+let logHold = false;
+function renderLog(force) {
+  // a press on a callsign link must not have its row rebuilt between pointerdown and click
+  if (logHold && !force) return;
+  const mine = myRadioId();
+  renderLogHead();
+  const matched = sortedLog();
+  const oldestFirst = S.lastheard.slice().reverse();
+  if (ui.colBy === "call") byCaller.assign(oldestFirst.map((c) => String(callOf(c.who))));
+  if (ui.colBy === "tg") byTg.assign(oldestFirst.filter((c) => c.group).map((c) => String(c.dst)));
+  const rows = matched.slice(0, ui.rows).map((c) => {
+    const w = c.who || {}, call = String(callOf(w)), tg = String(c.dst);
+    // phones have no hover for the funnel keys: a tap on the time or slot filters by that row's TG
+    const tapTg = c.group ? () => { if (touchOnly.matches) setFilter("tg", tg); } : null;
+    const cc = rowColour(c, call);
+    return h("tr", { class: [w.id === mine ? "mine" : "", cc ? "cc" : ""].join(" ").trim() || null, style: cc ? "--cc:" + cc : null, "data-by": cc ? ui.colBy : null },
+      h("td", { title: new Date(c.ts * 1000).toLocaleString([], { hourCycle: "h23" }), onclick: tapTg }, hhmmss(c.ts)),
+      h("td", { onclick: tapTg }, c.slot),
+      h("td", { title: c.alias || null }, h("span", { class: "src" + (c.source === "rf" ? " rf" : ""), title: c.source === "rf" ? "Heard on RF" : "From the network" }, c.source === "rf" ? "RF" : "NET"),
+        qrzLink(w, c), w.name ? h("span", { class: "nm" }, " " + w.name) : null, filterKey("call", call, call)),
+      h("td", {}, c.group ? "" : "PC ", hoseLink(c), c.group ? filterKey("tg", tg, "TG " + tg) : null),
+      h("td", { class: "tgn hide-s" }, c.group ? tgName(c.dst) : pcLink(c)),
+      h("td", { class: "r" + (c.lost ? " lost" : ""), title: c.lost ? "Transmission lost / watchdog expired" : null },
+        c.duration != null ? logDur(c.duration) : "", c.lost ? "*" : ""),
+      h("td", { class: "r " + (c.ber == null ? "" : c.ber >= 5 ? "berb" : c.ber >= 2 ? "berw" : "") }, c.ber != null ? c.ber.toFixed(1) + "%" : ""),
+      h("td", { class: "r hide-s" }, c.loss != null ? c.loss + "%" : ""));
+  });
+  fill($("log"), rows);
+  renderChips(matched.length);
+  const cut = matched.length - rows.length;
+  $("morerows").hidden = cut <= 0;
+  if (cut > 0) fill($("morerows"), h("span", {}, rows.length + " of " + matched.length + " shown"), h("button", { type: "button", id: "showall", onclick: () => setRows(50) }, "Show all"));
+  const filtered = ui.filter.call || ui.filter.tg || (ui.hideK && S.lastheard.length);
+  $("logempty").hidden = matched.length > 0;
+  $("logempty").textContent = filtered ? "No calls in the log match this filter." : "No calls since DMRHost started. Calls appear here as they finish.";
+}
+
+function renderStation() {
+  const d = S.bm.device || {};
+  const rows = [
+    ["Link", d.statusText ? d.statusText + (d.lastKnownMaster ? " · master " + d.lastKnownMaster : "") : (S.bm.error ? "BrandMeister API unreachable" : "…")],
+    ["RX / TX", d.rx ? (d.rx + " / " + d.tx + " MHz").replace(/\.0000/g, ".000") : "—"],
+    ["Colour code", d.colorcode != null ? d.colorcode : "—"],
+    ["Modem", S.modem.description ? S.modem.description.replace(/^MMDVM_HS_Dual_Hat-v/, "MMDVM_HS dual hat · fw ").replace(/ 20\d{6}.*$/, "") : "—"],
+    ["DMRHost", (S.host.version || "").replace(/^DMRHost-/, "").replace(/-DMRHost$/, "") + (S.host.since ? " · up " + ago(S.host.since) : "")],
+    ["Address", (S.hostname || "") + (S.ip ? " · " + S.ip : "")],
+    ["Last seen", d.last_seen ? new Date(d.last_seen.replace(" ", "T") + "Z").toLocaleTimeString([], { hourCycle: "h23" }) + " by BM" : "—"],
+  ];
+  const numeric = new Set(["RX / TX", "Colour code", "Address", "Last seen"]);
+  fill($("station"), rows.map(([k, v]) => [h("dt", {}, k), h("dd", { class: numeric.has(k) ? "num" : null }, String(v))]));
+}
+
+// Retry storms (one or two messages repeating every few seconds) collapse to one line each: an identical
+// message within 2 minutes of the same group's oldest copy joins it, so chronology outside a burst is kept.
+function collapseEvents(list) {
+  const groups = [], open = new Map();
+  for (const e of list) {  // newest first
+    const key = e.level + "|" + e.text, g = open.get(key);
+    if (g && g.first - e.ts <= 120) { g.n++; g.first = e.ts; continue; }
+    const ng = { ...e, n: 1, first: e.ts };
+    open.set(key, ng); groups.push(ng);
+  }
+  return groups;
+}
+
+function renderEvents() {
+  const ev = S.events.slice();
+  if (S.bm.error) ev.unshift({ ts: S.bm.updated || now(), level: "W", text: S.bm.error });
+  const shown = collapseEvents(ev).slice(0, 10);
+  fill($("events"), shown.length ? shown.map((e) => h("li", {}, h("time", {}, hhmmss(e.ts)),
+      h("span", { class: e.level }, e.text, e.n > 1 ? h("span", { class: "rep", title: e.n + " times from " + hhmmss(e.first) + " to " + hhmmss(e.ts) }, " ×" + e.n + " since " + hhmmss(e.first)) : null)))
+    : h("li", {}, "Nothing to report."));
+  $("evclear").disabled = !S.events.length || !!ui.busy;
+  // an amber dot on the (i) key flags warnings that arrived since the popover was last opened
+  if (ui.menu[3]) ui.seenEv = Math.max(ui.seenEv, ...ev.map((e) => e.ts), 0);
+  $("evdot").hidden = !ev.some((e) => "WEF".includes(e.level) && e.ts > ui.seenEv);
+}
+
+/* Station details and events live behind the (i) key in the strip. */
+function syncInfo() {
+  $("pop3").hidden = !ui.menu[3];
+  $("ibtn").setAttribute("aria-expanded", String(ui.menu[3]));
+}
+
+/* ---------------- presets: snapshots of both slots' static TGs ---------------- */
+const tgList = (tgs) => tgs.length ? tgs.join(" ") : "none";
+const presetSummary = (p) => "TS1 " + tgList(p.slots["1"] || []) + " · TS2 " + tgList(p.slots["2"] || []) + (p.drop_dynamic ? " · drops dynamics" : "");
+function presetInUse(p) {
+  const same = (n) => { const a = subsFor(n).st.map((t) => Number(t.talkgroup)).sort((x, y) => x - y), b = (p.slots[String(n)] || []).slice().sort((x, y) => x - y);
+    return a.length === b.length && a.every((v, i) => v === b[i]); };
+  return same(1) && same(2);
+}
+
+async function post(body) {
+  const r = await fetch("/api/bm", { method: "POST", headers: { "Content-Type": "application/json", "X-Dmrdash": "1" }, body: JSON.stringify(body) });
+  const j = await r.json().catch(() => ({}));
+  return { ok: r.ok, status: r.status, j };
+}
+
+async function presetRun(body, onDone) {
+  if (ui.busy) return;
+  ui.busy = body.action; ui.menu[0] = false; ui.msg[0] = { text: "Working…" }; render(true);
+  try {
+    const { ok, status, j } = await post(body);
+    if (!ok) say(0, j.error || "Failed (HTTP " + status + ")", true); else onDone(j);
+  } catch (e) { say(0, "Can't reach the dashboard on the Pi", true); }
+  ui.busy = null;
+  await poll(); render(true);
+}
+
+function changeText(j) {
+  const part = (list, sign) => [1, 2].map((s) => { const t = list.filter((x) => x[0] === s).map((x) => x[1]); return t.length ? sign + t.join(" " + sign) + " on TS" + s : null; }).filter(Boolean);
+  const parts = [...part(j.added || [], "+"), ...part(j.removed || [], "−")];
+  return parts.length ? parts.join(", ") : "no talkgroup changes";
+}
+
+function applyPreset(p) {
+  presetRun({ action: "presetApply", name: p.name }, (j) => {
+    const prev = j.previous;
+    const undo = () => { ui.msg[0] = null; presetRun({ action: "presetApply", slots: prev }, (u) => say(0, "Restored your previous talkgroups (" + changeText(u) + ")", !!(u.failed || []).length)); };
+    if ((j.failed || []).length) say(0, p.name + " only partly applied: " + j.failed[0] + (j.failed.length > 1 ? " (+" + (j.failed.length - 1) + " more)" : ""), true, undo);
+    else say(0, "Applied " + p.name + ": " + changeText(j) + (p.drop_dynamic ? ", dynamics dropped" : ""), false, (j.added.length || j.removed.length) ? undo : null);
+  });
+}
+
+function presetPanel() {
+  const open = ui.menu[0], list = S.presets || [];
+  if (!S.can_manage) return [];
+  const saveForm = () => {
+    const name = h("input", { id: "pname", type: "text", maxlength: "32", placeholder: "Preset name, e.g. Net night", "aria-label": "Preset name", autocomplete: "off",
+      oninput: (e) => { ui.pdraft = e.target.value; } });
+    name.value = ui.pdraft;
+    const drop = h("input", { id: "pdrop", type: "checkbox", checked: ui.pdrop, onchange: (e) => { ui.pdrop = e.target.checked; } });
+    return h("form", { class: "psave", novalidate: true, onsubmit: (e) => {
+        e.preventDefault();
+        if (!name.value.trim()) { name.focus(); return; }
+        const nm = name.value.trim();
+        presetRun({ action: "presetSave", name: nm, drop_dynamic: ui.pdrop }, (j) => { ui.psave = false; ui.pdraft = ""; ui.pdrop = false; say(0, "Saved preset " + nm + ": " + presetSummary(j.preset)); });
+      } },
+      h("p", { class: "phint" }, "Saves both slots' static talkgroups as they are now."), name,
+      h("label", { class: "pchk" }, drop, "Also drop dynamic TGs when applied"),
+      h("div", { class: "prow-btns" }, h("button", { class: "key sm", type: "submit", disabled: !!ui.busy }, "Save"),
+        h("button", { class: "key sm", type: "button", onclick: () => { ui.psave = false; render(true); focusId("pbtn"); } }, "Cancel")));
+  };
+  const rows = list.map((p, i) => {
+    const delId = "pdel" + i, confirming = ui.confirm === delId, used = presetInUse(p);
+    return h("li", { class: "prow" + (used ? " used" : "") },
+      h("button", { class: "papply", id: "papply" + i, disabled: !!ui.busy || used, title: used ? "Your talkgroups already match this preset" : "Apply " + p.name,
+        onclick: () => applyPreset(p) },
+        h("span", { class: "pn" }, p.name, used ? h("span", { class: "tag" }, "In use") : null), h("span", { class: "ps" }, presetSummary(p))),
+      h("button", { class: "pdel" + (confirming ? " confirm" : ""), id: delId, disabled: !!ui.busy, "aria-label": confirming ? "Confirm delete " + p.name : "Delete preset " + p.name,
+        onclick: () => {
+          if (!confirming) { ui.confirm = delId; render(true); setTimeout(() => { if (ui.confirm === delId) { ui.confirm = null; render(true); } }, 4000); return; }
+          ui.confirm = null; presetRun({ action: "presetDelete", name: p.name }, () => say(0, "Deleted preset " + p.name));
+        } }, confirming ? "Delete?" : icon("x")));
+  });
+  return [
+    h("button", { class: "key sm", id: "pbtn", "aria-expanded": open ? "true" : "false", "aria-controls": "pop0", onclick: () => { ui.menu[0] = !open; render(true); } },
+      icon("preset"), "Presets"),
+    open ? h("div", { class: "pop down", id: "pop0" },
+      h("h3", { class: "lg" }, "Talkgroup presets"),
+      rows.length ? h("ul", {}, rows) : h("p", { class: "none" }, "No presets yet. Set up your talkgroups, then save them here."),
+      ui.psave ? saveForm() : h("button", { class: "key sm edit-btn", id: "psavebtn", disabled: !!ui.busy,
+        onclick: () => { ui.psave = true; render(true); focusId("pname"); } }, icon("plus"), "Save current as preset…")) : null,
+  ];
+}
+
+function renderGlobal(force) {
+  if (force || !ui.menu[0]) fill($("presets"), presetPanel());
+  const msg = ui.msg[0], m = $("gmsg");
+  m.className = "slotmsg gmsg" + (msg && msg.err ? " err" : "");
+  m.hidden = !msg;
+  fill(m, msg ? [msg.text, msg.undo ? h("button", { id: "undo0", onclick: msg.undo }, "Undo") : null] : []);
+}
+
+/* ---------------- log filter ---------------- */
+function setFilter(k, v) {
+  ui.filter[k] = ui.filter[k] === v ? null : v;
+  renderLog(true);
+}
+function filterKey(k, v, label) {
+  return h("button", { class: "flt", type: "button", "aria-label": "Show only " + label, title: "Show only " + label, onclick: () => setFilter(k, v) }, icon("funnel"));
+}
+function renderChips(shown) {
+  const f = ui.filter, chips = [];
+  if (f.call) chips.push(h("button", { class: "chip", id: "chipcall", "aria-label": "Clear callsign filter " + f.call, onclick: () => setFilter("call", f.call) }, f.call, icon("x")));
+  if (f.tg) chips.push(h("button", { class: "chip", id: "chiptg", "aria-label": "Clear talkgroup filter " + f.tg, onclick: () => setFilter("tg", f.tg) },
+    "TG " + f.tg + (tgName(f.tg) ? " " + tgName(f.tg) : ""), icon("x")));
+  if (chips.length || (ui.hideK && shown < S.lastheard.length)) chips.push(h("span", { class: "count" }, shown + " of " + S.lastheard.length));
+  fill($("chips"), chips);
+}
+const touchOnly = matchMedia("(hover: none)");
+
+/* ---------------- render loop ---------------- */
+function render(force) {
+  if (!S) return;
+  const focused = document.activeElement && document.activeElement.id;
+  renderStrip();
+  renderGlobal(force);
+  for (const n of [1, 2]) renderVfo(n, force);
+  renderLog(); renderStation(); renderEvents();
+  if (focused && $(focused)) $(focused).focus();
+}
+
+async function poll() {
+  try {
+    const r = await fetch("/api/state", { cache: "no-store" });
+    if (r.ok) { S = await r.json(); skew = S.now - Date.now() / 1000; lastOk = now(); everOk = true; }
+  } catch (e) { /* surfaced as the offline alarm */ }
+  render();
+  pollLog();
+}
+
+/* ---------------- live log ---------------- */
+const LOGMAX = 400;
+const L = { last: 0, open: true, follow: true, busy: false };
+const msTime = (ts) => hhmmss(ts) + "." + String(Math.floor((ts % 1) * 1000)).padStart(3, "0");
+async function pollLog() {
+  if (!L.open || L.busy) return;
+  L.busy = true;
+  try {
+    const r = await fetch("/api/log?after=" + L.last, { cache: "no-store" });
+    if (r.ok) {
+      const j = await r.json(), con = $("console");
+      if (j.last < L.last) { fill(con); L.last = 0; L.busy = false; return pollLog(); }  // dashboard restarted: sequence began again
+      if (L.last && j.lines.length && j.lines[0].n > L.last + 1) con.append(h("div", { class: "ln gap" }, "… older lines dropped while this view was away"));
+      // appended, never re-rendered, so a text selection in the log survives updates
+      con.append(...j.lines.map((x) => h("div", { class: "ln" }, h("span", { class: "t" }, msTime(x.ts)), h("span", { class: "lv " + x.l }, x.l), h("span", {}, x.t))));
+      while (con.childElementCount > LOGMAX) con.firstElementChild.remove();
+      L.last = j.last;
+      if (L.follow) con.scrollTop = con.scrollHeight;
+    }
+  } catch (e) { /* the offline alarm covers this */ }
+  L.busy = false;
+}
+function setLogOpen(open) {
+  L.open = open;
+  $("logtoggle").setAttribute("aria-expanded", String(open));
+  $("console").hidden = !open;
+  if (!open) $("logjump").hidden = true;
+  try { localStorage.setItem("dmrdash.logOpen", open ? "1" : "0"); } catch (e) {}
+  if (open) { L.follow = true; pollLog(); }
+}
+
+function say(n, text, err, undo) {
+  ui.msg[n] = { text, err, undo };
+  const stamp = ui.msg[n];
+  // successes fade; errors stay until the next action on this slot
+  if (!err) setTimeout(() => { if (ui.msg[n] === stamp) { ui.msg[n] = null; render(true); } }, undo ? 10000 : 6000);
+}
+
+async function act(body, n, okText, undo) {
+  if (ui.busy) return false;
+  ui.busy = body.action + n + (body.talkgroup ? "/" + body.talkgroup : "");
+  ui.msg[n] = { text: "Working…" }; render(true);
+  let ok = false;
+  try {
+    const r = await fetch("/api/bm", { method: "POST", headers: { "Content-Type": "application/json", "X-Dmrdash": "1" }, body: JSON.stringify(body) });
+    const j = await r.json().catch(() => ({}));
+    ok = r.ok;
+    say(n, ok ? okText : (j.error || "Failed (HTTP " + r.status + ")"), !ok, ok ? undo : null);
+  } catch (e) { say(n, "Can't reach the dashboard on the Pi", true); }
+  ui.busy = null;
+  await poll();
+  render(true);
+  return ok;
+}
+
+async function addTG(n, tg) {
+  const ok = await act({ action: "add", slot: n, talkgroup: tg }, n, "Added TG " + tg + (tgName(tg) ? " " + tgName(tg) : "") + " to TS" + n);
+  if (ok) { ui.draft[n] = ""; render(true); focusId("add" + n); }
+}
+function removeTG(n, tg) {
+  act({ action: "remove", slot: n, talkgroup: tg }, n, "Removed TG " + tg + " from TS" + n,
+    () => { ui.msg[n] = null; act({ action: "add", slot: n, talkgroup: tg }, n, "Restored TG " + tg + " on TS" + n); });
+}
+
+setInterval(() => {
+  for (const t of document.querySelectorAll(".timer[data-start]")) t.textContent = clockDur(Math.max(0, now() - Number(t.dataset.start)));
+  const d = new Date(Date.now() + skew * 1000);
+  $("clock").textContent = d.toLocaleTimeString([], { hourCycle: "h23" }) + "  ·  " + d.toISOString().slice(11, 16) + "Z";
+}, 250);
+initLogHead(); renderLogHead();
+// how many Last heard rows to draw: 5, 10 or 50 (all the Pi keeps), remembered per browser
+function setRows(n) {
+  ui.rows = [5, 10, 50].includes(n) ? n : 50;
+  for (const b of $("rowsel").querySelectorAll("button")) {
+    const on = Number(b.dataset.rows) === ui.rows;
+    b.setAttribute("aria-checked", String(on)); b.tabIndex = on ? 0 : -1;
+  }
+  try { localStorage.setItem("dmrdash.rows", String(ui.rows)); } catch (e) {}
+  if (S) renderLog(true);
+}
+try { setRows(Number(localStorage.getItem("dmrdash.rows")) || 50); } catch (e) { setRows(50); }
+$("rowsel").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) setRows(Number(b.dataset.rows)); });
+$("rowsel").addEventListener("keydown", (e) => {  // radio-group arrows
+  const order = [5, 10, 50], i = order.indexOf(ui.rows), d = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[e.key];
+  if (!d) return;
+  e.preventDefault(); setRows(order[(i + d + order.length) % order.length]);
+  $("rowsel").querySelector('[aria-checked="true"]').focus();
+});
+$("logtoggle").addEventListener("click", () => { $("console").classList.add("anim"); setLogOpen(!L.open); });
+$("console").addEventListener("scroll", (e) => {
+  const c = e.target;
+  L.follow = c.scrollHeight - c.scrollTop - c.clientHeight < 24;  // scrolled up to read: stop following until back at the bottom
+  $("logjump").hidden = L.follow;
+});
+$("logjump").addEventListener("click", () => { const c = $("console"); L.follow = true; c.scrollTop = c.scrollHeight; $("logjump").hidden = true; });
+try { if (localStorage.getItem("dmrdash.logOpen") === "0") setLogOpen(false); } catch (e) {}
+ui.menu[3] = false; ui.seenEv = 0;
+$("ibtn").prepend(icon("info"));
+$("ibtn").addEventListener("click", () => { ui.menu[3] = !ui.menu[3]; syncInfo(); if (S) renderEvents(); });
+$("evclear").addEventListener("click", async () => {
+  if (ui.busy) return;
+  ui.busy = "clearEvents"; $("evclear").disabled = true;
+  try { const { ok, j } = await post({ action: "clearEvents" }); if (!ok) say(0, j.error || "Couldn't clear events", true); }
+  catch (e) { say(0, "Can't reach the dashboard on the Pi", true); }
+  ui.busy = null; await poll(); render(true); focusId("ibtn");
+});
+// "Hide kerchunks" is a per-viewer preference, so it lives in this browser's storage
+// the cutoff is adjustable like WPSD's: 0.5 s steps from 0.5 to 10 s, default 1 s
+const kClamp = (v) => Math.min(10, Math.max(0.5, Math.round(v * 2) / 2));
+try { ui.hideK = localStorage.getItem("dmrdash.hideK") === "1"; } catch (e) { ui.hideK = false; }
+try { const v = parseFloat(localStorage.getItem("dmrdash.kMax")); ui.kMax = Number.isFinite(v) ? kClamp(v) : 1; } catch (e) { ui.kMax = 1; }
+function syncKerchunk() {
+  $("hidek").setAttribute("aria-checked", String(ui.hideK));
+  $("hidek").title = "Hide transmissions shorter than " + ui.kMax + " s";
+  $("ksecs").hidden = !ui.hideK;
+  if (document.activeElement !== $("kmax")) $("kmax").value = ui.kMax;
+}
+syncKerchunk();
+$("hidek").addEventListener("click", () => {
+  ui.hideK = !ui.hideK;
+  syncKerchunk();
+  try { localStorage.setItem("dmrdash.hideK", ui.hideK ? "1" : "0"); } catch (e) {}
+  if (S) renderLog(true);
+});
+$("kmax").addEventListener("input", (e) => {
+  const v = parseFloat(e.target.value);
+  if (!Number.isFinite(v)) return;  // mid-edit (empty field): keep the last good cutoff
+  ui.kMax = kClamp(v);
+  try { localStorage.setItem("dmrdash.kMax", String(ui.kMax)); } catch (e) {}
+  syncKerchunk();
+  if (S) renderLog(true);
+});
+// colour rows by: off, caller, talkgroup or timeslot; remembered per browser
+const COL_MODES = ["", "call", "tg", "ts"];
+function setColBy(m) {
+  ui.colBy = COL_MODES.includes(m) ? m : "";
+  for (const b of $("colsel").querySelectorAll("button")) {
+    const on = b.dataset.col === ui.colBy;
+    b.setAttribute("aria-checked", String(on)); b.tabIndex = on ? 0 : -1;
+  }
+  try { localStorage.setItem("dmrdash.colBy", ui.colBy); } catch (e) {}
+  if (S) renderLog(true);
+}
+try {
+  let m = localStorage.getItem("dmrdash.colBy");
+  if (m === null && localStorage.getItem("dmrdash.colCall") === "1") m = "call";  // the earlier on/off switch
+  setColBy(m || "");
+} catch (e) { setColBy(""); }
+$("colsel").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) setColBy(b.dataset.col); });
+$("colsel").addEventListener("keydown", (e) => {
+  const d = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[e.key];
+  if (!d) return;
+  e.preventDefault();
+  setColBy(COL_MODES[(COL_MODES.indexOf(ui.colBy) + d + COL_MODES.length) % COL_MODES.length]);
+  $("colsel").querySelector('[aria-checked="true"]').focus();
+});
+$("kmax").addEventListener("blur", (e) => { e.target.value = ui.kMax; syncKerchunk(); });
+$("log").addEventListener("pointerdown", () => { logHold = true; });
+for (const ev of ["pointerup", "pointercancel", "pointerleave"]) $("log").addEventListener(ev, () => setTimeout(() => { logHold = false; }, 400));
+poll(); setInterval(poll, 2000);
+</script>
+</body>
+</html>
