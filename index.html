@@ -159,6 +159,111 @@ h2.lg { margin: 0; }
 .console .gap { color: var(--legend-dim); font-style: italic; }
 @media (max-width: 820px) { .console { height: 240px; padding: 8px 10px; font-size: 11.5px; } .console .ln { grid-template-columns: max-content minmax(0, 1fr); gap: 8px; } .console .lv { display: none; } }
 @media (prefers-reduced-motion: reduce) { .disclose .chev, .console.anim { transition: none; } }
+/* RF BER trend: one dot per over from the owner's radio, newest at the right */
+.bersum { margin-left: auto; display: flex; flex-wrap: wrap; gap: 4px 14px; font: 13px/1.25 var(--mono); font-variant-numeric: tabular-nums; color: var(--white); }
+.bersum .lg { margin-right: 5px; }
+.berbox { padding-bottom: 0; }
+/* section order: a grip at the left of each lower-deck title bar; drag it, or focus it and use the arrow keys */
+.grip { display: inline-grid; place-items: center; width: 22px; height: 26px; margin: 0 -4px 0 -8px; padding: 0; border: 0; border-radius: 4px;
+  background: none; color: var(--legend-dim); cursor: grab; touch-action: none; flex: none; }
+.grip svg.ic { fill: currentColor; stroke: none; width: 16px; height: 16px; }
+.grip:hover { color: var(--white); }
+.grip:focus-visible { outline: 2px solid var(--white); outline-offset: 0; }
+.deck.sorting, .deck.sorting * { cursor: grabbing; user-select: none; -webkit-user-select: none; }
+.box.dragging { border-color: var(--legend); }
+/* swaps glide with a view transition, scoped to the deck where supported. Names are only set while sorting,
+   so the boxes aren't captured (or made stacking contexts) the rest of the time. */
+.deck.vt > .box { view-transition-class: sec; }
+.deck.vt > [data-sec="heard"] { view-transition-name: sec-heard; }
+.deck.vt > [data-sec="ber"] { view-transition-name: sec-ber; }
+.deck.vt > [data-sec="log"] { view-transition-name: sec-log; }
+:root { view-transition-name: none; }  /* the document fallback leaves the rest of the page live */
+::view-transition { pointer-events: none; }  /* the drag keeps reaching the page while boxes glide */
+::view-transition-group(*.sec) { animation-duration: .22s; animation-timing-function: cubic-bezier(.2, 0, 0, 1); }
+::view-transition-old(*.sec) { display: none; }  /* same box before and after: move it, don't cross-fade it */
+::view-transition-new(*.sec) { animation: none; }
+.box.dragging .grip { color: var(--white); }
+.vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.berbox .logbar { gap: 6px 12px; }
+.bersum { position: relative; align-items: center; }
+.bersum .tunemore { position: static; margin-left: 0; }
+.tunekey { min-height: 24px; padding: 0 8px; font-size: 12px; font-family: var(--sans); }
+.tunekey.hot { border-color: var(--busy); }
+.tunekey .hotdot { width: 7px; height: 7px; border-radius: 50%; background: var(--busy); }
+.tunepop { right: 0; width: min(380px, calc(100vw - 32px)); font: 13px/1.4 var(--sans); color: var(--legend); }
+.tunepop p { margin: 0 4px 8px; } .tunepop p b { color: var(--white); font-weight: 600; }
+.tunepop .m { font-family: var(--mono); color: var(--white); }
+.tunepop .keys { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 4px 0; }
+.tunepop .fine, .tuner .fine { font-size: 12px; color: var(--legend-dim); margin: 8px 4px 0; }
+.tunepop svg { display: block; width: 100%; height: auto; }
+.bermsg { margin: 0 14px 8px; }
+.bermsg button { display: inline-grid; place-items: center; width: 24px; height: 24px; margin-left: auto; color: var(--legend-dim); text-decoration: none; border-radius: 4px; }
+.bermsg button:hover { color: var(--white); } .bermsg button:focus-visible { outline: 2px solid var(--white); }
+.bercurve text { font: 10.5px var(--mono); fill: var(--legend-dim); }
+.bercurve .base { stroke: var(--rule-2); }
+.bercurve .thr { stroke-dasharray: 3 4; } .bercurve .thr.berw { stroke: var(--busy); } .bercurve .thr.berb { stroke: var(--fail-text); }
+.bercurve text.berw { fill: var(--busy); } .bercurve text.berb { fill: var(--fail-text); }
+.bercurve .dot { fill: var(--legend); stroke: var(--panel); stroke-width: 2; }
+.bercurve .dot.berw { fill: var(--busy); } .bercurve .dot.berb { fill: var(--fail-text); }
+.bercurve .fit { fill: none; stroke: var(--legend-dim); stroke-width: 1.5; stroke-dasharray: 4 3; }
+.bercurve .sugg { fill: var(--white); } .bercurve .suggl { stroke: var(--white); stroke-dasharray: 2 3; } .bercurve text.suggt { fill: var(--white); font-weight: 700; }
+/* the tuning run: a positive LCD like the VFO windows; inks darkened to read on the LCD ground */
+.tuner { padding: 6px 14px 12px; }
+.tlcd { background: var(--lcd); color: var(--lcd-ink); border: 1px solid #0f1112; border-radius: 6px; padding: 12px 14px 8px; }
+.tlcd .tl-top { display: flex; align-items: flex-start; gap: 12px; }
+.tlcd .lbl { font: 600 10.5px/1 var(--sans); letter-spacing: .14em; text-transform: uppercase; color: var(--lcd-dim); }
+.tlcd .big { font: 800 52px/1 var(--readout); margin-top: 4px; white-space: nowrap; }
+.tlcd .big small { font: 600 18px var(--sans); margin-left: 6px; color: var(--lcd-dim); }
+.tlcd .tl-side { margin-left: auto; text-align: right; }
+.tlcd .ku { font: 800 22px/1 var(--readout); margin-top: 4px; white-space: nowrap; } .tlcd .ku.sm { font: 600 15px var(--sans); }
+.tlcd .pips { display: inline-flex; gap: 6px; vertical-align: 1px; }
+.tlcd .pips i { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--lcd-ink); }
+.tlcd .pips i.got { background: var(--lcd-ink); }
+.tlcd .tl-plot { margin-top: 6px; } .tlcd .tl-plot svg { display: block; width: 100%; max-width: 720px; height: auto; margin: 0 auto; }
+.tlcd .big .sg { font: 700 .7em/1 var(--sans); margin-right: 2px; vertical-align: .08em; }  /* the readout subset has no minus sign */
+.tlcd .tl-empty { margin: 14px 0 10px; font-size: 13px; color: var(--lcd-dim); }
+.tlcd .tl-line { border-top: 1px solid var(--lcd-rule); margin-top: 8px; padding-top: 6px; font-size: 13px; color: var(--lcd-dim); display: flex; flex-wrap: wrap; gap: 4px 14px; }
+.tlcd .tl-line b { color: var(--lcd-ink); font: 600 12.5px var(--mono); }
+.tlcd .bercurve text { fill: var(--lcd-dim); } .tlcd .bercurve .base { stroke: var(--lcd-dim); }
+.tlcd .bercurve .dot { fill: var(--lcd-ink); stroke: var(--lcd); }
+.tlcd .bercurve .dot.berw, .tlcd .bercurve .thr.berw { fill: #8a5208; stroke: #8a5208; } .tlcd .bercurve .thr.berw { fill: none; }
+.tlcd .bercurve .dot.berb, .tlcd .bercurve .thr.berb { fill: var(--lcd-tx-ink); stroke: var(--lcd-tx-ink); } .tlcd .bercurve .thr.berb { fill: none; }
+.tlcd .bercurve .dot.berw, .tlcd .bercurve .dot.berb { stroke: var(--lcd); }
+.tlcd .bercurve text.berw { fill: #8a5208; } .tlcd .bercurve text.berb { fill: var(--lcd-tx-ink); }
+.tlcd .bercurve .sugg, .tlcd .bercurve text.suggt { fill: var(--lcd-ink); } .tlcd .bercurve .suggl { stroke: var(--lcd-ink); }
+.tlcd .bercurve .fit { stroke: var(--lcd-dim); }
+.tlcd .bercurve .now { fill: none; stroke: var(--lcd-ink); stroke-width: 2; stroke-dasharray: 3 2; }
+.tl-under { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding-top: 10px; }
+.tl-under .fine { margin: 0; flex: 1 1 260px; }
+@media (max-width: 820px) { .tlcd .big { font-size: 42px; } .tuner { padding: 6px 10px 12px; } }
+.berplot { position: relative; border-top: 1px solid var(--rule); padding: 6px 0 0; }
+.berplot[hidden] { display: none; }
+#berplot { position: relative; }
+.berplot svg { display: block; width: 100%; touch-action: manipulation; }
+.berplot text { font: 10.5px var(--mono); fill: var(--legend-dim); }
+.berplot .base { stroke: var(--rule-2); }
+.berplot .grid { stroke: var(--row); }
+.berplot .thr { stroke-dasharray: 3 4; } .berplot .thr.berw { stroke: var(--busy); } .berplot .thr.berb { stroke: var(--fail-text); }
+.berplot text.berw { fill: var(--busy); } .berplot text.berb { fill: var(--fail-text); }
+.berplot .offl { stroke: var(--legend-dim); stroke-dasharray: 2 3; }
+.berplot text.offt { fill: var(--legend); }
+.berplot .med { fill: none; stroke: var(--legend-dim); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.berplot .dot { fill: var(--legend); stroke: var(--panel-2); stroke-width: 2; }
+.berplot .dot.berw { fill: var(--busy); } .berplot .dot.berb { fill: var(--fail-text); }
+.berplot .dot.drop { fill: var(--panel-2); stroke: var(--legend); } .berplot .dot.drop.berw { stroke: var(--busy); } .berplot .dot.drop.berb { stroke: var(--fail-text); }
+.berplot .dot.on { stroke-width: 3; r: 6.5; }
+.berplot .dot.on:not(.drop) { stroke: var(--white); }
+.berplot .hit { fill: transparent; cursor: pointer; }
+.berkey { display: flex; flex-wrap: wrap; gap: 4px 16px; padding: 4px 14px 8px; font-size: 12px; color: var(--legend-dim); }
+.berkey i { display: inline-block; vertical-align: -1px; margin-right: 6px; }
+.berkey .k-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--legend); }
+.berkey .k-drop { width: 9px; height: 9px; border-radius: 50%; border: 2px solid var(--legend); }
+.berkey .k-med { width: 14px; height: 2px; background: var(--legend-dim); vertical-align: 3px; }
+.berkey .k-off { width: 0; height: 11px; border-left: 1px dashed var(--legend-dim); margin: 0 6px 0 3px; vertical-align: -2px; }
+.bertip { position: absolute; z-index: 2; pointer-events: none; background: var(--panel); border: 1px solid var(--rule-2); border-radius: 6px;
+  padding: 7px 10px; font: 12.5px/1.45 var(--sans); color: var(--legend); white-space: nowrap; }
+.bertip b { font: 700 13px var(--mono); color: var(--white); }
+.bertip .m { font-family: var(--mono); font-variant-numeric: tabular-nums; }
 .ev .rep { font-family: var(--mono); font-size: 11.5px; color: var(--legend-dim); white-space: nowrap; }
 .info .more-btn { position: relative; }
 .info .more-btn svg.ic { fill: none; stroke: currentColor; }
@@ -356,7 +461,7 @@ dt { color: var(--legend-dim); } dd { margin: 0; overflow-wrap: anywhere; } dd.n
   <main class="vfos"><div id="vfo1"></div><div id="vfo2"></div></main>
 
   <section class="deck">
-    <div class="box">
+    <div class="box" data-sec="heard">
       <div class="logbar"><h2 class="lg">Last heard</h2><div class="chips" id="chips"></div>
         <div class="kfilter"><div class="seg" id="rowsel" role="radiogroup" aria-label="Rows shown"><span class="lg dim" aria-hidden="true">Rows</span><button type="button" role="radio" data-rows="5">5</button><button type="button" role="radio" data-rows="10">10</button><button type="button" role="radio" data-rows="50">50</button></div>
         <div class="seg" id="colsel" role="radiogroup" aria-label="Colour rows by"><span class="lg dim" aria-hidden="true">Colour</span><button type="button" role="radio" data-col="">Off</button><button type="button" role="radio" data-col="call" title="Each caller gets a colour">Caller</button><button type="button" role="radio" data-col="tg" title="Each talkgroup gets a colour">TG</button><button type="button" role="radio" data-col="ts" title="TS1 cyan, TS2 violet">TS</button></div>
@@ -369,7 +474,16 @@ dt { color: var(--legend-dim); } dd { margin: 0; overflow-wrap: anywhere; } dd.n
       <div class="morerows" id="morerows" hidden></div>
       <div class="empty" id="logempty" hidden>No calls since DMRHost started. Calls appear here as they finish.</div>
     </div>
-    <div class="box livelog">
+    <div class="box berbox" data-sec="ber">
+      <div class="logbar">
+        <button class="disclose" id="bertoggle" type="button" aria-expanded="true" aria-controls="berbody"><span class="chev" aria-hidden="true"></span><h2 class="lg">RF BER</h2></button>
+        <span class="lg dim">Your radio into the hotspot</span>
+        <div class="bersum" id="bersum"></div>
+      </div>
+      <div class="slotmsg bermsg" id="bermsg" aria-live="polite" hidden></div>
+      <div class="berplot" id="berbody"><div id="berplot"></div><div class="berkey" id="berkey" aria-hidden="true"></div></div>
+    </div>
+    <div class="box livelog" data-sec="log">
       <div class="logbar">
         <button class="disclose" id="logtoggle" type="button" aria-expanded="true" aria-controls="console"><span class="chev" aria-hidden="true"></span><h2 class="lg">Live log</h2></button>
         <button class="key sm" id="logjump" type="button" hidden>Jump to live</button>
@@ -377,6 +491,7 @@ dt { color: var(--legend-dim); } dd { margin: 0; overflow-wrap: anywhere; } dd.n
       <div class="console" id="console" role="log" aria-label="DMRHost live log" tabindex="0"></div>
     </div>
   </section>
+  <div class="vh" id="ordermsg" aria-live="polite"></div>
 </div>
 
 <dialog class="pindlg" id="pindlg" aria-labelledby="pintitle">
@@ -399,6 +514,7 @@ const ICONS = {
   preset: '<path d="M3 4h10M3 8h10M3 12h6"/><path d="M12 11l1.5 1.5L16 10"/>',
   info: '<circle cx="8" cy="8" r="6.3"/><path d="M8 7.3v4M8 4.9v.01"/>',
   funnel: '<path d="M2.5 3h11l-4.2 5v4.5l-2.6 1.3V8z"/>',
+  grip: '<circle cx="5.5" cy="3.5" r="1.3"/><circle cx="10.5" cy="3.5" r="1.3"/><circle cx="5.5" cy="8" r="1.3"/><circle cx="10.5" cy="8" r="1.3"/><circle cx="5.5" cy="12.5" r="1.3"/><circle cx="10.5" cy="12.5" r="1.3"/>',
   more: '<circle cx="3.5" cy="8" r="1.1"/><circle cx="8" cy="8" r="1.1"/><circle cx="12.5" cy="8" r="1.1"/>',
   warn: '<path d="M8 2l7 12H1z"/><path d="M8 7v3M8 12v.01"/>',
   static: '<path d="M8 14V9.5"/><path d="M4 9.5h8L10.5 3h-5z"/>',
@@ -571,16 +687,17 @@ function tgMenu(n, subs) {
 }
 function closeMenus(except) {
   // only the closing menu re-renders, so a tap landing on the other slot's key isn't lost
-  for (const n of [0, 1, 2, 3]) if (ui.menu[n] && n !== except) {
+  for (const n of [0, 1, 2, 3, 4]) if (ui.menu[n] && n !== except) {
     ui.menu[n] = false;
     if (n === 3) syncInfo();
+    else if (n === 4) { if (S) renderBer(); }
     else if (S) n ? fill($("menu" + n), tgMenu(n, subsFor(n))) : fill($("presets"), presetPanel());
   }
 }
 document.addEventListener("pointerdown", (e) => { const m = e.target.closest && e.target.closest(".more"); closeMenus(m ? Number(m.dataset.slot) : -1); });
 document.addEventListener("keydown", (e) => {
   if (e.key !== "Escape") return;
-  for (const n of [0, 1, 2, 3]) if (ui.menu[n]) { ui.menu[n] = false; if (n === 3) syncInfo(); render(true); focusId(["pbtn", "more1", "more2", "ibtn"][n]); }
+  for (const n of [0, 1, 2, 3, 4]) if (ui.menu[n]) { ui.menu[n] = false; if (n === 3) syncInfo(); render(true); focusId(["pbtn", "more1", "more2", "ibtn", "tbtn"][n]); }
 });
 
 /* On demand: the full list with spelled-out actions. */
@@ -804,7 +921,7 @@ function renderLog(force) {
       h("td", { class: "tgn hide-s" }, c.group ? tgName(c.dst) : pcLink(c)),
       h("td", { class: "r" + (c.lost ? " lost" : ""), title: c.lost ? "Transmission lost / watchdog expired" : null },
         c.duration != null ? logDur(c.duration) : "", c.lost ? "*" : ""),
-      h("td", { class: "r " + (c.ber == null ? "" : c.ber >= 5 ? "berb" : c.ber >= 2 ? "berw" : "") }, c.ber != null ? c.ber.toFixed(1) + "%" : ""),
+      h("td", { class: "r " + (c.ber == null ? "" : berClass(c.ber)) }, c.ber != null ? c.ber.toFixed(1) + "%" : ""),
       h("td", { class: "r hide-s" }, c.loss != null ? c.loss + "%" : ""));
   });
   fill($("log"), rows);
@@ -1011,7 +1128,7 @@ function render(force) {
   renderStrip();
   renderGlobal(force);
   for (const n of [1, 2]) renderVfo(n, force);
-  renderLog(); renderStation(); renderEvents();
+  renderLog(); renderBer(force); renderStation(); renderEvents();
   if (focused && $(focused)) $(focused).focus();
 }
 
@@ -1053,6 +1170,270 @@ function setLogOpen(open) {
   if (!open) $("logjump").hidden = true;
   try { localStorage.setItem("dmrdash.logOpen", open ? "1" : "0"); } catch (e) {}
   if (open) { L.follow = true; pollLog(); }
+}
+
+/* ---------------- RF BER trend ---------------- */
+// One dot per RF over, evenly spaced with the newest at the right: overs come in bursts hours apart,
+// so a time axis would pile a tuning session into one spot. Gaps over 30 minutes get a time label.
+const BER_WARN = 2, BER_BAD = 5;  // the log's BER column uses the same cut-offs
+const berClass = (b) => b >= BER_BAD ? "berb" : b >= BER_WARN ? "berw" : "";
+const hzText = (hz) => hz == null ? "unknown" : (hz > 0 ? "+" : hz < 0 ? "−" : "") + Math.abs(hz) + " Hz";
+const pct = (b) => b.toFixed(1) + "%";
+function median(a) {
+  const v = a.slice().sort((x, y) => x - y), m = v.length >> 1;
+  return v.length % 2 ? v[m] : (v[m - 1] + v[m]) / 2;
+}
+const B = { open: true, key: "", shown: [], at: [], tip: -1, err: null, closed: null };
+function sv(tag, attrs, ...kids) {
+  const el = document.createElementNS("http://www.w3.org/2000/svg", tag);
+  for (const [k, v] of Object.entries(attrs || {})) if (v != null) el.setAttribute(k, v);
+  for (const k of kids) if (k != null) el.append(k);
+  return el;
+}
+const tuning = (rf) => !!rf.tune && (rf.tune.state === "running" || rf.tune.state === "done");
+// What the overs say about the current offset, and where the overs at other offsets point.
+// Only overs long enough for a fair BER count, and only the last 24 hours for other offsets:
+// older ones were made at another temperature, so the hat's drift may have moved since.
+function berAdvice(rf) {
+  const ok = rf.overs.filter((o) => o.off != null && o.dur >= (rf.tune_min_secs || 1.5));
+  const here = ok.filter((o) => o.off === rf.offset).slice(-10).map((o) => o.ber);
+  const med = here.length > 1 ? median(here) : null;
+  const by = new Map();
+  for (const o of ok) if (now() - o.ts < 86400) by.set(o.off, (by.get(o.off) || []).concat(o.ber));
+  const pts = [...by].filter(([, b]) => b.length >= 2).map(([off, b]) => [off, median(b)]).sort((a, b) => a[0] - b[0]);
+  let sugg = null, fit = null;
+  if (pts.length >= 3) {
+    const s3 = pts.slice().sort((a, b) => a[1] - b[1]).slice(0, 3).sort((a, b) => a[0] - b[0]);
+    fit = parabola(s3);
+    const best = s3.reduce((a, b) => (b[1] < a[1] ? b : a))[0];
+    sugg = fit && fit.A > 0 && fit.v >= s3[0][0] && fit.v <= s3[2][0] ? Math.round(fit.v / 25) * 25 : best;
+    if (Math.abs(sugg - rf.offset) < 50) sugg = null;
+  }
+  return { n: here.length, med, high: here.length >= 5 && med > BER_WARN, pts, sugg, fit };
+}
+// the parabola through three [offset, BER] points, its vertex v, and the span it was fitted on
+function parabola([[x1, y1], [x2, y2], [x3, y3]]) {
+  const d = (x1 - x2) * (x1 - x3) * (x2 - x3);
+  if (!d) return null;
+  const A = (x3 * (y2 - y1) + x2 * (y1 - y3) + x1 * (y3 - y2)) / d;
+  const Bq = (x3 * x3 * (y1 - y2) + x2 * x2 * (y3 - y1) + x1 * x1 * (y2 - y3)) / d;
+  const C = (x2 * x3 * (x2 - x3) * y1 + x3 * x1 * (x3 - x1) * y2 + x1 * x2 * (x1 - x2) * y3) / d;
+  return { A, B: Bq, C, v: A ? -Bq / (2 * A) : NaN, lo: x1, hi: x3 };
+}
+// BER against RX offset: a dot per offset, the dashed fit, the suggestion or best marked, and the offset now under test
+function berCurve(pts, { W, H = 140, mark, fit, now: at }) {
+  const LM = 34, RM = 12, TM = 20, BM = 20, pw = W - LM - RM, ph = H - TM - BM;
+  const xs = pts.map((p) => p[0]).concat(mark != null ? [mark] : [], at != null ? [at] : []);
+  const lo = Math.floor((Math.min(...xs) - 60) / 100) * 100, hi = Math.ceil((Math.max(...xs) + 60) / 100) * 100;
+  const yMax = Math.max(6, Math.ceil(Math.max(...pts.map((p) => p[1]))));
+  const X = (v) => LM + ((v - lo) / (hi - lo)) * pw, Y = (b) => TM + ph - (Math.min(b, yMax) / yMax) * ph;
+  const g = [];
+  for (const [b, cls] of [[BER_WARN, "berw"], [BER_BAD, "berb"]])
+    g.push(sv("line", { class: "thr " + cls, x1: LM, x2: W - RM, y1: Y(b), y2: Y(b) }), sv("text", { class: cls, x: LM - 6, y: Y(b) + 3.5, "text-anchor": "end" }, b + "%"));
+  g.push(sv("line", { class: "base", x1: LM, x2: W - RM, y1: Y(0), y2: Y(0) }), sv("text", { x: LM - 6, y: Y(0) + 3.5, "text-anchor": "end" }, "0"));
+  const every = (hi - lo) / 100 > 8 ? 400 : 200;
+  for (let v = lo; v <= hi; v += 100) if (v % every === 0) g.push(sv("text", { x: X(v), y: H - 5, "text-anchor": "middle" }, v ? hzText(v).replace(" Hz", "") : "0"));
+  if (fit && fit.A > 0) {
+    const line = [];
+    for (let v = fit.lo - 40; v <= fit.hi + 40; v += 8) line.push(X(v).toFixed(1) + "," + Y(Math.max(0, fit.A * v * v + fit.B * v + fit.C)).toFixed(1));
+    g.push(sv("polyline", { class: "fit", points: line.join(" ") }));
+  }
+  if (mark != null) {
+    const x = X(mark), right = x + 80 < W;
+    g.push(sv("line", { class: "suggl", x1: x, x2: x, y1: TM, y2: Y(0) }), sv("path", { class: "sugg", d: `M${x - 6},${TM - 12}h12l-6,8z` }),
+      sv("text", { class: "suggt", x: right ? x + 9 : x - 9, y: TM - 5, "text-anchor": right ? "start" : "end" }, hzText(mark)));
+  }
+  for (const [o, b] of pts) g.push(sv("circle", { class: "dot " + berClass(b), cx: X(o), cy: Y(b), r: 5.5 }));
+  if (at != null) g.push(sv("circle", { class: "now", cx: X(at), cy: Y(0) - 10, r: 7 }), sv("text", { x: X(at), y: Y(0) - 22, "text-anchor": "middle" }, "now"));
+  return sv("svg", { class: "bercurve", viewBox: `0 0 ${W} ${H}`, height: H, role: "img",
+    "aria-label": "Median BER at each RX offset: " + pts.map(([o, b]) => hzText(o) + " " + pct(b)).join(", ") }, ...g);
+}
+function armKey(id, label, body) {
+  const armed = ui.confirm === id;
+  return h("button", { class: "key sm act" + (armed ? " confirm" : ""), id, disabled: !!ui.busy,
+    onclick: () => {
+      if (!armed) { ui.confirm = id; render(true); setTimeout(() => { if (ui.confirm === id) { ui.confirm = null; render(true); } }, 4000); return; }
+      ui.confirm = null; ui.menu[4] = false; tuneAct(body);
+    } }, armed ? "Restart DMRHost?" : label);
+}
+async function tuneAct(body) {
+  if (ui.busy) return;
+  ui.busy = body.action; B.err = null; render(true);
+  try {
+    const { ok, status, j } = await post(body);
+    if (!ok) B.err = j.error || "Failed (HTTP " + status + ")";
+  } catch (e) { B.err = "Can't reach the dashboard on the Pi"; }
+  ui.busy = null;
+  await poll();
+  render(true);
+}
+// The Tune key, and its popover with what the overs say. It turns into "Retune?" while the BER stays high.
+function tuneMenu(rf, adv) {
+  if (rf.offset == null || tuning(rf)) return null;
+  const open = ui.menu[4], m = (t) => h("span", { class: "m" }, t);
+  const body = () => {
+    const kids = [h("h3", { class: "lg" }, "RX offset · last 24 h")];
+    kids.push(h("p", {}, adv.n > 1 ? ["The median at ", m(hzText(rf.offset)), " is ", h("b", { class: berClass(adv.med) }, pct(adv.med)), ` over your last ${adv.n} overs.`]
+      : ["Not enough overs at ", m(hzText(rf.offset)), ` yet to judge it (they need to be ${rf.tune_min_secs || 1.5} s or longer).`]));
+    if (adv.sugg != null) kids.push(h("p", {}, "Your overs at other offsets point to ", h("b", { class: "m" }, hzText(adv.sugg)), "."));
+    else if (adv.pts.length < 3) kids.push(h("p", {}, "A suggestion needs overs at 3 or more offsets in the last 24 hours. A tuning run makes them."));
+    else kids.push(h("p", {}, "Your overs at other offsets don't point anywhere better."));
+    if (adv.pts.length >= 2) kids.push(berCurve(adv.pts, { W: 356, mark: adv.sugg, fit: adv.sugg != null ? adv.fit : null }));
+    if (!rf.can_tune) kids.push(h("p", { class: "fine" }, "Changing the offset from the dashboard needs the dmrdash-rxoffset helper. Rerun install.sh on the Pi to add it."));
+    else {
+      kids.push(h("div", { class: "keys" }, adv.sugg != null ? armKey("ttry", "Try " + hzText(adv.sugg), { action: "tryOffset", hz: adv.sugg }) : null,
+        armKey("tstart", "Tune RX offset…", { action: "tuneStart" })));
+      kids.push(h("p", { class: "fine" }, `Each change restarts DMRHost, which cuts any call in progress. A run measures ${rf.tune_overs || 3} overs at each offset, up to ${rf.tune_max_steps || 8} offsets.`));
+    }
+    return h("div", { class: "pop down tunepop", id: "pop4" }, kids);
+  };
+  return h("div", { class: "more tunemore", "data-slot": "4" },
+    h("button", { class: "key sm tunekey" + (adv.high ? " hot" : ""), id: "tbtn", "aria-expanded": String(open), "aria-controls": "pop4",
+      title: adv.high ? "Your BER has stayed high at this offset" : "Suggest or tune the RX offset", onclick: () => { ui.menu[4] = !open; render(true); } },
+      adv.high ? [h("i", { class: "hotdot", "aria-hidden": "true" }), "Retune?"] : "Tune"),
+    open ? body() : null);
+}
+const pipsFor = (bers, n) => h("span", { class: "pips", "aria-hidden": "true" }, Array.from({ length: n }, (_, i) => h("i", { class: i < bers.length ? "got" : null })));
+// The tuning run on an LCD: the offset under test, the key-up count, and BER against offset as steps finish.
+function tuner(rf, W) {
+  const t = rf.tune, n = rf.tune_overs || 3, done = t.state === "done", m = (x) => h("b", {}, x);
+  const full = t.steps.filter((s) => s.bers.length >= n), pts = full.map((s) => [s.off, median(s.bers)]).sort((a, b) => a[0] - b[0]);
+  const medOf = (off) => { const s = full.find((x) => x.off === off); return s ? median(s.bers) : null; };
+  const bestPt = pts.length ? pts.reduce((a, b) => (b[1] < a[1] ? b : a)) : null, startMed = medOf(t.start), cur = t.steps[t.steps.length - 1];
+  const head = done ? ["Best RX offset", t.best] : [t.pending ? "Switching to" : "Testing RX offset", t.target];
+  const side = done ? [h("div", { class: "lbl" }, "BER"), h("div", { class: "ku" }, pct(medOf(t.best)))]
+    : t.pending ? [h("div", { class: "lbl" }, "Wait"), h("div", { class: "ku sm" }, "Restarting…")]
+    : [h("div", { class: "lbl" }, "Key up"), h("div", { class: "ku" }, `${cur.bers.length}/${n} `, pipsFor(cur.bers, n))];
+  const s3 = pts.length >= 3 ? pts.slice().sort((a, b) => a[1] - b[1]).slice(0, 3).sort((a, b) => a[0] - b[0]) : null;
+  const line = done
+    ? [h("span", {}, "Was ", m(hzText(t.start) + (startMed != null ? " · " + pct(startMed) : ""))), h("span", {}, `${t.steps.length} steps · ${full.reduce((a, s) => a + s.bers.length, 0)} overs`),
+       t.pending ? h("span", {}, "Restarting DMRHost on ", m(hzText(t.best)), "…") : null]
+    : [h("span", {}, "Started at ", m(hzText(t.start) + (startMed != null ? " · " + pct(startMed) : ""))),
+       bestPt && pts.length > 1 ? h("span", {}, "Best so far ", m(hzText(bestPt[0]) + " · " + pct(bestPt[1]))) : null,
+       h("span", {}, `Step ${t.steps.length} of up to ${rf.tune_max_steps || 8}`)];
+  const lcd = h("div", { class: "tlcd", role: "status", "aria-live": "polite" },
+    h("div", { class: "tl-top" }, h("div", {}, h("div", { class: "lbl" }, head[0]), h("div", { class: "big" }, head[1] < 0 ? h("span", { class: "sg" }, "\u2212") : head[1] > 0 ? h("span", { class: "sg" }, "+") : null, String(Math.abs(head[1])), h("small", {}, "Hz"))),
+      h("div", { class: "tl-side" }, side)),
+    pts.length ? h("div", { class: "tl-plot" }, berCurve(pts, { W: Math.min(720, Math.max(280, W - 58)), mark: done ? t.best : null, fit: done && s3 ? parabola(s3) : null, now: done ? null : t.target }))
+      : h("p", { class: "tl-empty" }, `Each offset's BER shows here once its ${n} overs are in.`),
+    h("div", { class: "tl-line" }, line));
+  const under = done
+    ? [h("button", { class: "key sm act", id: "tkeep", disabled: !!ui.busy, onclick: () => tuneAct({ action: "tuneKeep" }) }, "Keep " + hzText(t.best)),
+       t.best !== t.start ? h("button", { class: "key sm", id: "tback", disabled: !!ui.busy, onclick: () => tuneAct({ action: "tuneBack" }) }, "Back to " + hzText(t.start)) : null]
+    : [h("button", { class: "key sm", id: "tstop", disabled: !!ui.busy, onclick: () => tuneAct({ action: "tuneStop" }) }, icon("x"), "Stop, back to " + hzText(t.start)),
+       h("p", { class: "fine" }, `Key up about 5 s each; overs under ${rf.tune_min_secs || 1.5} s don't count. Each step restarts DMRHost. Goes back by itself after ${Math.round((rf.tune_idle || 300) / 60)} min without a key-up.`)];
+  return h("div", { class: "tuner" }, lcd, h("div", { class: "tl-under" }, under));
+}
+// Outcome of the last tuning action: confirmations fade after a few seconds, errors stay until closed.
+function renderTuneNote(rf) {
+  const t = rf.tune || {}, el = $("bermsg");
+  const note = B.err ? { text: B.err, err: true, close: () => { B.err = null; renderTuneNote(S.rf); } }
+    : t.note && t.note_ts !== B.closed && (t.sticky || now() - t.note_ts < 8)
+      ? { text: t.note, err: t.err, close: t.sticky ? () => { B.closed = t.note_ts; renderTuneNote(S.rf); } : null } : null;
+  el.hidden = !note;
+  el.className = "slotmsg bermsg" + (note && note.err ? " err" : "");
+  fill(el, note ? [note.text, note.close ? h("button", { id: "bermsgx", "aria-label": "Close this message", onclick: note.close }, icon("x")) : null] : null);
+}
+function renderBer(force, replot) {  // force redraws the summary even with the Tune popover open; replot redraws the plot
+  const rf = S.rf || { overs: [], offset: null }, overs = rf.overs, last = overs[overs.length - 1];
+  const adv = berAdvice(rf), med = adv.med;
+  if (force || !ui.menu[4]) fill($("bersum"),
+    h("span", {}, h("span", { class: "lg dim" }, "RX offset"), hzText(rf.offset)),
+    last && h("span", {}, h("span", { class: "lg dim" }, "Last"), h("span", { class: berClass(last.ber) }, pct(last.ber))),
+    med != null && h("span", { title: `Median of the last ${adv.n} overs at this RX offset` },
+      h("span", { class: "lg dim" }, "Median"), h("span", { class: berClass(med) }, pct(med))),
+    tuneMenu(rf, adv));
+  renderTuneNote(rf);
+  const plot = $("berplot"), W = plot.clientWidth;
+  if (!B.open || !W) return;
+  $("berkey").hidden = tuning(rf);
+  if (tuning(rf)) { B.key = ""; B.tip = -1; return fill(plot, tuner(rf, W)); }
+  const key = [overs.length, last ? last.ts : 0, W].join(":");
+  if (!replot && key === B.key) return;
+  B.key = key; B.tip = -1;
+  if (!overs.length) {
+    fill($("berkey"));
+    return fill(plot, h("div", { class: "empty" }, "No RF overs since DMRHost started. Key up on the hotspot and your BER shows here."));
+  }
+  const H = W < 600 ? 140 : 170, LM = 36, RM = 12, TM = 34, BM = 20, pw = W - LM - RM, ph = H - TM - BM;
+  const step = Math.min(40, Math.max(10, pw / overs.length));
+  const shown = overs.slice(-Math.max(1, Math.floor(pw / step)));
+  const x0 = LM + pw - shown.length * step, X = (i) => x0 + (i + 0.5) * step;
+  const yMax = Math.max(6, Math.ceil(Math.max(...shown.map((o) => o.ber))));
+  const Y = (b) => TM + ph - (Math.min(b, yMax) / yMax) * ph;
+  const g = [];
+  // value grid: the baseline, the warn and bad cut-offs, and the top of the scale
+  g.push(sv("line", { class: "grid", x1: LM, x2: W - RM, y1: Y(yMax), y2: Y(yMax) }), sv("text", { x: LM - 6, y: Y(yMax) + 3.5, "text-anchor": "end" }, yMax + "%"));
+  for (const [b, cls] of [[BER_WARN, "berw"], [BER_BAD, "berb"]])
+    g.push(sv("line", { class: "thr " + cls, x1: LM, x2: W - RM, y1: Y(b), y2: Y(b) }), sv("text", { class: cls, x: LM - 6, y: Y(b) + 3.5, "text-anchor": "end" }, b + "%"));
+  g.push(sv("line", { class: "base", x1: LM, x2: W - RM, y1: Y(0), y2: Y(0) }), sv("text", { x: LM - 6, y: Y(0) + 3.5, "text-anchor": "end" }, "0"));
+  // RX offset: labelled where it is first known and at every change, on two rows so close changes don't collide.
+  // Overs from before the dashboard saw a DMRHost start have no offset and stay unlabelled.
+  const rows = [-1e9, -1e9];
+  shown.forEach((o, i) => {
+    if (o.off == null || (i && o.off === shown[i - 1].off)) return;
+    const x = x0 + i * step;
+    if (i && shown[i - 1].off != null) g.push(sv("line", { class: "offl", x1: x, x2: x, y1: TM - 4, y2: Y(0) }));
+    const text = hzText(o.off), wid = text.length * 6.4 + 8, row = x >= rows[0] ? 0 : x >= rows[1] ? 1 : -1;
+    if (row < 0 || x + wid > W) return;
+    rows[row] = x + wid;
+    g.push(sv("text", { class: "offt", x: i ? x + 3 : x, y: 11 + row * 13 }, text));
+  });
+  // rolling median of five overs, restarted at each offset change so a new setting is judged on its own
+  let seg = [];
+  shown.forEach((o, i) => {
+    if (i && o.off !== shown[i - 1].off) { if (seg.length > 1) g.push(sv("polyline", { class: "med", points: seg.join(" ") })); seg = []; }
+    const from = Math.max(i - 4, i - seg.length);
+    seg.push(X(i).toFixed(1) + "," + Y(median(shown.slice(from, i + 1).map((v) => v.ber))).toFixed(1));
+  });
+  if (seg.length > 1) g.push(sv("polyline", { class: "med", points: seg.join(" ") }));
+  // time labels at the first over and after gaps, kept 48px apart; the date shows when the day changes
+  let lastLbl = -1e9, lastDay = new Date(now() * 1000).toDateString();
+  shown.forEach((o, i) => {
+    if (i && o.ts - shown[i - 1].ts < 1800) return;
+    if (X(i) - lastLbl < 48) return;
+    lastLbl = X(i);
+    const d = new Date(o.ts * 1000), sameDay = d.toDateString() === (i ? lastDay : new Date(now() * 1000).toDateString());
+    lastDay = d.toDateString();
+    const label = sameDay ? d.toLocaleTimeString([], { hourCycle: "h23", hour: "2-digit", minute: "2-digit" }) : d.toLocaleDateString([], { day: "numeric", month: "short" });
+    g.push(sv("text", { x: Math.max(X(i), LM + 14), y: H - 5, "text-anchor": "middle" }, label));
+  });
+  B.shown = shown; B.at = shown.map((o, i) => [X(i), Y(o.ber)]);
+  shown.forEach((o, i) => g.push(sv("circle", { class: ["dot", berClass(o.ber), o.lost ? "drop" : ""].join(" ").trim(), cx: X(i), cy: Y(o.ber), r: o.lost ? 4.5 : 5, "data-i": i })));
+  // hit columns the full plot height, so a dot is easy to pick with a finger
+  shown.forEach((o, i) => g.push(sv("rect", { class: "hit", x: x0 + i * step, y: 0, width: step, height: H, "data-i": i })));
+  const svg = sv("svg", { viewBox: `0 0 ${W} ${H}`, height: H, role: "img",
+    "aria-label": `RF BER of your last ${shown.length} overs: latest ${pct(last.ber)}` + (med != null ? `, median ${pct(med)} at RX offset ${hzText(rf.offset)}` : "") }, ...g);
+  fill(plot, svg, h("div", { class: "bertip", id: "bertip", hidden: true }));
+  fill($("berkey"), h("span", {}, h("i", { class: "k-dot" }), "One over"), h("span", {}, h("i", { class: "k-drop" }), "Dropped (lost mid-over)"),
+    h("span", {}, h("i", { class: "k-med" }), "Median of 5"), h("span", {}, h("i", { class: "k-off" }), "RX offset change"));
+}
+function berTip(i) {
+  if (i === B.tip) return;
+  B.tip = i;
+  const tip = $("bertip"), plot = $("berplot");
+  for (const d of plot.querySelectorAll(".dot.on")) d.classList.remove("on");
+  if (!tip) return;
+  if (i < 0) { tip.hidden = true; return; }
+  const o = B.shown[i];
+  plot.querySelector(`.dot[data-i="${i}"]`).classList.add("on");
+  const to = o.group ? ["TG ", h("span", { class: "m" }, o.dst), tgName(o.dst) ? " " + tgName(o.dst) : ""] : ["Private call ", h("span", { class: "m" }, o.dst)];
+  fill(tip,
+    h("div", {}, h("b", { class: berClass(o.ber) }, "BER " + pct(o.ber)), o.lost ? " · dropped" : ""),
+    h("div", {}, h("span", { class: "m" }, hhmmss(o.ts)), ` · TS${o.slot} · `, h("span", { class: "m" }, o.dur.toFixed(1) + " s")),
+    h("div", {}, ...to),
+    h("div", {}, "RX offset ", h("span", { class: "m" }, hzText(o.off))));
+  tip.hidden = false;
+  const [x, y] = B.at[i], tw = tip.offsetWidth, th = tip.offsetHeight;
+  tip.style.left = Math.max(4, Math.min(plot.clientWidth - tw - 4, x - tw / 2)) + "px";
+  tip.style.top = (y - th - 12 >= 0 ? y - th - 12 : y + 14) + "px";
+}
+function setBerOpen(open) {
+  B.open = open;
+  $("bertoggle").setAttribute("aria-expanded", String(open));
+  $("berbody").hidden = !open;
+  try { localStorage.setItem("dmrdash.berOpen", open ? "1" : "0"); } catch (e) {}
+  if (open && S) renderBer(true, true);
 }
 
 function say(n, text, err, undo) {
@@ -1119,7 +1500,14 @@ $("console").addEventListener("scroll", (e) => {
 });
 $("logjump").addEventListener("click", () => { const c = $("console"); L.follow = true; c.scrollTop = c.scrollHeight; $("logjump").hidden = true; });
 try { if (localStorage.getItem("dmrdash.logOpen") === "0") setLogOpen(false); } catch (e) {}
-ui.menu[3] = false; ui.seenEv = 0;
+$("bertoggle").addEventListener("click", () => setBerOpen(!B.open));
+try { if (localStorage.getItem("dmrdash.berOpen") === "0") setBerOpen(false); } catch (e) {}
+$("berplot").addEventListener("pointerover", (e) => { const r = e.target.closest(".hit"); if (r) berTip(Number(r.dataset.i)); });
+$("berplot").addEventListener("pointerleave", (e) => { if (e.pointerType === "mouse") berTip(-1); });
+document.addEventListener("pointerdown", (e) => { if (!e.target.closest || !e.target.closest("#berplot")) berTip(-1); });
+let berRaf = 0;
+addEventListener("resize", () => { cancelAnimationFrame(berRaf); berRaf = requestAnimationFrame(() => { if (S) renderBer(); }); });
+ui.menu[3] = false; ui.menu[4] = false; ui.seenEv = 0;
 $("ibtn").prepend(icon("info"));
 $("ibtn").addEventListener("click", () => { ui.menu[3] = !ui.menu[3]; syncInfo(); if (S) renderEvents(); });
 $("evclear").addEventListener("click", async () => {
@@ -1182,6 +1570,78 @@ $("colsel").addEventListener("keydown", (e) => {
 $("kmax").addEventListener("blur", (e) => { e.target.value = ui.kMax; syncKerchunk(); });
 $("log").addEventListener("pointerdown", () => { logHold = true; });
 for (const ev of ["pointerup", "pointercancel", "pointerleave"]) $("log").addEventListener(ev, () => setTimeout(() => { logHold = false; }, 400));
+
+/* ---------------- section order ---------------- */
+// Last heard, RF BER and Live log can be put in any order, remembered per browser. The dragged box itself
+// never leaves the DOM (its neighbours move round it), so pointer capture and keyboard focus survive.
+const deck = document.querySelector(".deck");
+const SECTIONS = { heard: "Last heard", ber: "RF BER", log: "Live log" };
+function shift(el, before) {
+  const con = $("console"), top = con.scrollTop;
+  deck.insertBefore(el, before);
+  con.scrollTop = L.follow ? con.scrollHeight : top;  // a moved node can lose its scroll position
+}
+function moveBox(box, to) {
+  if ([...deck.children].indexOf(box) === to) return;
+  const move = () => {
+    let i = [...deck.children].indexOf(box);  // again: a view transition runs this a frame later
+    for (; i > to; i--) shift(box.previousElementSibling, box.nextElementSibling);
+    for (; i < to; i++) shift(box.nextElementSibling, box);
+  };
+  const vt = matchMedia("(prefers-reduced-motion: reduce)").matches ? null
+    : deck.startViewTransition ? deck.startViewTransition.bind(deck) : document.startViewTransition ? document.startViewTransition.bind(document) : null;
+  if (!vt) return move();
+  deck.classList.add("vt");
+  const t = vt(move);
+  t.finished.finally(() => { if (lastVt === t) deck.classList.remove("vt"); });
+  lastVt = t;
+}
+function saveOrder() { try { localStorage.setItem("dmrdash.order", [...deck.children].map((b) => b.dataset.sec).join(",")); } catch (e) {} }
+try { for (const k of (localStorage.getItem("dmrdash.order") || "").split(",")) { const b = deck.querySelector(`[data-sec="${k}"]`); if (b) deck.append(b); } } catch (e) {}
+let drag = null, lastVt = null;
+function dragTo(y) {
+  // the slot is the count of other boxes whose middle the pointer is below
+  const others = [...deck.children].filter((b) => b !== drag.box);
+  moveBox(drag.box, others.filter((b) => { const r = b.getBoundingClientRect(); return y > r.top + r.height / 2; }).length);
+}
+function dragScroll() {
+  if (!drag) return;
+  const edge = 56, y = drag.y, v = y < edge ? -(edge - y) / 3 : y > innerHeight - edge ? (y - innerHeight + edge) / 3 : 0;
+  if (v) { scrollBy(0, v); dragTo(y); }
+  requestAnimationFrame(dragScroll);
+}
+function dragEnd() {
+  if (!drag) return;
+  drag.box.classList.remove("dragging"); deck.classList.remove("sorting");
+  drag = null; saveOrder();
+}
+for (const box of deck.children) {
+  const name = SECTIONS[box.dataset.sec];
+  const grip = h("button", { class: "grip", type: "button", "aria-label": `Move ${name}`, title: "Drag to move this section, or use the arrow keys",
+    "aria-roledescription": "sortable section" }, icon("grip"));
+  grip.addEventListener("pointerdown", (e) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    grip.setPointerCapture(e.pointerId);
+    drag = { box, y: e.clientY };
+    box.classList.add("dragging"); deck.classList.add("sorting");
+    requestAnimationFrame(dragScroll);
+  });
+  grip.addEventListener("pointermove", (e) => { if (drag) { drag.y = e.clientY; dragTo(e.clientY); } });
+  grip.addEventListener("pointerup", dragEnd);
+  grip.addEventListener("pointercancel", dragEnd);
+  grip.addEventListener("lostpointercapture", dragEnd);
+  grip.addEventListener("keydown", (e) => {
+    const d = { ArrowUp: -1, ArrowDown: 1 }[e.key];
+    if (!d) return;
+    e.preventDefault();
+    const n = deck.children.length, to = Math.max(0, Math.min(n - 1, [...deck.children].indexOf(box) + d));
+    moveBox(box, to); saveOrder();
+    grip.scrollIntoView({ block: "nearest" });
+    $("ordermsg").textContent = `${name} moved to position ${to + 1} of ${n}`;
+  });
+  box.querySelector(".logbar").prepend(grip);
+}
 poll(); setInterval(poll, 2000);
 </script>
 </body>

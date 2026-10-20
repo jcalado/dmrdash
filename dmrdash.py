@@ -16,6 +16,7 @@ import hmac
 import json
 import os
 import re
+import statistics
 import subprocess
 import threading
 import time
@@ -59,7 +60,8 @@ ACTION_LOCK = threading.Lock()  # one BrandMeister change sequence at a time (a 
 
 # --- talkgroup presets ------------------------------------------------------
 
-PRESETS_PATH = os.path.join(os.environ.get("STATE_DIRECTORY", "/var/lib/dmrdash"), "presets.json")
+STATE_DIR = os.environ.get("STATE_DIRECTORY", "/var/lib/dmrdash")
+PRESETS_PATH = os.path.join(STATE_DIR, "presets.json")
 MAX_PRESETS = 12
 
 
@@ -163,6 +165,10 @@ STATE = {
     "slots": {1: empty_slot(), 2: empty_slot()},
     "lastheard": collections.deque(maxlen=int(CONF["lastheard_size"])),
     "events": collections.deque(maxlen=60),  # the page collapses retry storms, so keep enough to show what came before one
+    # BER of each RF over (the owner's radio into the hotspot), oldest first, tagged with the modem
+    # RX offset DMRHost last reported, so the page can show the uplink trend across offset changes
+    "rfber": collections.deque(maxlen=200),
+    "rxoffset": None,
 }
 
 BM = {"device": None, "profile": None, "talkgroups": {}, "updated": None,
@@ -178,6 +184,7 @@ RE_END = re.compile(
 RE_WATCHDOG = re.compile(r"network watchdog has expired(?:, ([\d.]+) seconds, (\d+)% packet loss, BER: ([\d.]+)%)?$")
 RE_ALIAS = re.compile(r'Talker Alias "(.*)"$')
 RE_REJECT = re.compile(r"RF user (\d+) rejected(?: for using TG (\d+))?$")
+RE_RXOFFSET = re.compile(r"^\s*RX Offset: (-?\d+)Hz$")
 RE_LOGLINE = re.compile(r"^DMRHost: ([DMIWEF]): \S+ \S+ (.*)$")
 
 # Raw log lines for the page's live log view: a RAM ring buffer fed by the same journal stream
@@ -208,6 +215,11 @@ def handle_line(ts, level, msg):
     m = SLOT_RE.match(msg)
     if m:
         handle_slot(ts, int(m.group(1)), m.group(2))
+        return
+    m = RE_RXOFFSET.match(msg)
+    if m:
+        STATE["rxoffset"] = int(m.group(1))
+        tune_offset_seen(ts, STATE["rxoffset"])
         return
     if msg.startswith("DMRHost-") and msg.endswith(" is starting"):
         STATE["host"].update(status="starting", since=ts, version=msg.split()[0])
@@ -242,8 +254,14 @@ def handle_line(ts, level, msg):
 
 def finish_call(ts, slot, source, src, dst, group, secs, loss, ber, rssi=None, lost=False):
     s = STATE["slots"][slot]
+    source = source.lower() if source else s["source"]
+    if source == "rf" and ber is not None:
+        over = {"ts": ts, "ber": ber, "dur": secs, "lost": lost, "slot": slot,
+                "dst": dst, "group": group, "off": STATE["rxoffset"]}
+        STATE["rfber"].append(over)
+        tune_over(over)
     STATE["lastheard"].appendleft({
-        "ts": ts, "slot": slot, "source": source.lower() if source else s["source"],
+        "ts": ts, "slot": slot, "source": source,
         "who": who(src), "dst": dst, "group": group, "to": None if group else who(dst),
         "duration": secs, "loss": loss, "ber": ber, "rssi": rssi,
         "alias": s["alias"], "lost": lost,
@@ -419,6 +437,8 @@ def bm_action(body):
         return preset_delete(body)
     elif action == "presetApply":
         return preset_apply(body)
+    elif action in ("tuneStart", "tuneStop", "tuneKeep", "tuneBack", "tryOffset"):
+        return tune_action(action, body)
     else:
         raise BMError("unknown action")
     bm_refresh()
@@ -512,6 +532,183 @@ def preset_apply(body):
             "previous": {str(s): sorted(cur[s]) for s in (1, 2)}}
 
 
+# --- RX offset tuning -------------------------------------------------------
+# The dashboard can't edit MMDVM.ini or restart DMRHost itself. It writes the wanted offset to a
+# request file, and the root-run dmrdash-rxoffset.path/.service (rxoffset.py) checks and applies it.
+# DMRHost then logs "RX Offset: N Hz" as it starts, which is how a change is seen to have landed.
+
+REQUEST_PATH = os.path.join(STATE_DIR, "rxoffset.request")
+OFFSET_LIMIT = 3000      # Hz either side, matching rxoffset.py
+TUNE_STEP = 150          # first step; halved around the best offset once it is bracketed
+TUNE_MIN_STEP = 50       # stop once the step would be finer than this
+TUNE_OVERS = 3           # overs measured at each offset
+TUNE_MAX_STEPS = 8
+TUNE_MIN_SECS = 1.5      # shorter overs carry too few frames for a fair BER
+TUNE_IDLE = 300          # no key-up for this long: give up and go back to the start offset
+APPLY_WAIT = 45          # DMRHost should report the new offset within this
+
+TUNE = {"state": "idle", "note": None, "note_ts": None, "err": False, "sticky": False}
+
+
+def hz_text(hz):
+    return ("+" if hz > 0 else "\u2212" if hz < 0 else "") + f"{abs(hz)} Hz"
+
+
+def can_tune():
+    return os.path.exists(os.path.join(HERE, "rxoffset.py"))
+
+
+def request_offset(hz):
+    """Ask the root helper for an RX offset. False when DMRHost already runs with it."""
+    if not isinstance(hz, int) or isinstance(hz, bool) or abs(hz) > OFFSET_LIMIT:
+        raise BMError(f"The RX offset must be a whole number of Hz within ±{OFFSET_LIMIT}")
+    if hz == STATE["rxoffset"]:
+        return False
+    if not can_tune():
+        raise BMError("RX offset changes need the dmrdash-rxoffset helper; rerun install.sh")
+    try:
+        with open(REQUEST_PATH, "w") as f:
+            f.write(f"{hz}\n")
+    except OSError as e:
+        raise BMError(f"Can't write the RX offset request on the Pi: {e.strerror or e}")
+    return True
+
+
+def tune_next(steps, step, start):
+    """The next offset to measure, and the step it was found at; None when the search is done.
+
+    Walk out from the best offset so far while the BER improves, then halve the step around it.
+    With both neighbours untried, head towards the second-best offset (the minimum lies between).
+    """
+    med = {s["off"]: statistics.median(s["bers"]) for s in steps if s["bers"]}
+    while step >= TUNE_MIN_STEP:
+        best = min(med, key=lambda o: (med[o], abs(o - start)))
+        cands = [c for c in (best - step, best + step) if c not in med and abs(c) <= OFFSET_LIMIT]
+        if len(cands) == 2:
+            others = sorted((o for o in med if o != best), key=lambda o: (med[o], abs(o - best)))
+            if others and others[0] > best:
+                cands.reverse()
+        if cands:
+            return cands[0], step
+        step //= 2
+    return None, step
+
+
+def tune_goto(hz, ts):
+    t = TUNE
+    t["target"], t["since"] = hz, ts
+    t["pending"] = request_offset(hz)
+    t["requested"] = ts if t["pending"] else None
+
+
+def tune_start(ts):
+    if TUNE["state"] == "running":
+        raise BMError("A tuning run is already going")
+    cur = STATE["rxoffset"]
+    if cur is None:
+        raise BMError("DMRHost hasn't reported its RX offset since the dashboard started")
+    if not can_tune():
+        raise BMError("RX offset changes need the dmrdash-rxoffset helper; rerun install.sh")
+    TUNE.clear()
+    TUNE.update(state="running", note=None, note_ts=None, err=False, sticky=False, start=cur, step=TUNE_STEP, steps=[{"off": cur, "bers": []}],
+                target=cur, pending=False, requested=None, since=ts, best=None)
+
+
+def tune_finish(ts):
+    t = TUNE
+    done = [s for s in t["steps"] if len(s["bers"]) >= TUNE_OVERS]
+    best = min(done, key=lambda s: (statistics.median(s["bers"]), abs(s["off"] - t["start"])))["off"]
+    t.update(state="done", best=best)
+    tune_goto(best, ts)  # stay on the best while the owner decides
+
+
+def tune_advance(ts):
+    t = TUNE
+    nxt, t["step"] = tune_next(t["steps"], t["step"], t["start"])
+    if nxt is None or len(t["steps"]) >= TUNE_MAX_STEPS:
+        return tune_finish(ts)
+    t["steps"].append({"off": nxt, "bers": []})
+    tune_goto(nxt, ts)
+
+
+def tune_over(over):
+    t = TUNE
+    if t["state"] != "running" or t["pending"] or over["off"] != t["target"] or over["dur"] < TUNE_MIN_SECS:
+        return
+    step = t["steps"][-1]
+    step["bers"].append(over["ber"])
+    t["since"] = over["ts"]
+    if len(step["bers"]) >= TUNE_OVERS:
+        try:
+            tune_advance(over["ts"])
+        except BMError as e:
+            tune_end(f"Tuning stopped: {e}", revert=False, err=True)
+
+
+def tune_offset_seen(ts, hz):
+    t = TUNE
+    if t["state"] in ("running", "done") and t.get("pending") and hz == t["target"]:
+        t["pending"], t["since"] = False, ts
+
+
+def tune_note(note, err=False, sticky=False):
+    """sticky (and every error) stays on the page until closed; other notes are a brief confirmation."""
+    TUNE.update(note=note, note_ts=time.time(), err=err, sticky=sticky or err)
+
+
+def tune_end(note, revert=True, err=False, sticky=False):
+    start = TUNE.get("start")
+    TUNE.clear()
+    TUNE.update(state="idle")
+    tune_note(note, err, sticky)
+    if revert and start is not None:
+        request_offset(start)
+
+
+def tune_watch():
+    """Give up on a run nobody is keying up for, or one whose offset change never landed."""
+    while True:
+        time.sleep(5)
+        now = time.time()
+        with LOCK:
+            t = TUNE
+            try:
+                if t["state"] in ("running", "done") and t.get("pending") and now - t["requested"] > APPLY_WAIT:
+                    tune_end(f"DMRHost didn't come back with RX offset {hz_text(t['target'])}. "
+                             "Check the helper: journalctl -u dmrdash-rxoffset", revert=False, err=True)
+                elif t["state"] == "running" and not t["pending"] and now - t["since"] > TUNE_IDLE:
+                    tune_end(f"No key-up for {TUNE_IDLE // 60} minutes, so tuning stopped and went back to {hz_text(t['start'])}", sticky=True)
+            except BMError as e:
+                tune_note(str(e), err=True)
+
+
+def tune_action(action, body):
+    with LOCK:
+        t, now = TUNE, time.time()
+        if action == "tuneStart":
+            tune_start(now)
+        elif action == "tuneStop":
+            if t["state"] != "running":
+                raise BMError("No tuning run is going")
+            tune_end(f"Tuning stopped; back to {hz_text(t['start'])}")
+        elif action == "tuneKeep":
+            if t["state"] != "done":
+                raise BMError("No finished tuning run to keep")
+            tune_end(f"Kept RX offset {hz_text(t['best'])}", revert=False)
+        elif action == "tuneBack":
+            if t["state"] != "done":
+                raise BMError("No finished tuning run")
+            tune_end(f"Back to RX offset {hz_text(t['start'])}")
+        elif action == "tryOffset":
+            if t["state"] in ("running", "done"):
+                raise BMError("Finish the tuning run first")
+            hz = body.get("hz")
+            if not request_offset(hz):
+                raise BMError(f"DMRHost already runs with RX offset {hz_text(hz)}")
+            tune_note(f"Trying RX offset {hz_text(hz)}: key up a few times to see whether the BER drops")
+    return {"ok": True}
+
+
 # --- HTTP -------------------------------------------------------------------
 
 def local_ip():
@@ -543,6 +740,9 @@ def snapshot():
             "slots": {k: dict(v) for k, v in STATE["slots"].items()},
             "lastheard": list(STATE["lastheard"]),
             "events": list(STATE["events"]),
+            "rf": {"overs": list(STATE["rfber"]), "offset": STATE["rxoffset"], "can_tune": can_tune(),
+                   "tune": json.loads(json.dumps(TUNE)), "tune_overs": TUNE_OVERS, "tune_max_steps": TUNE_MAX_STEPS,
+                   "tune_min_secs": TUNE_MIN_SECS, "tune_idle": TUNE_IDLE},
             "bm": {
                 "device": BM["device"],
                 "static": profile.get("staticSubscriptions") or [],
@@ -644,6 +844,7 @@ class Handler(BaseHTTPRequestHandler):
 def main():
     threading.Thread(target=follow_journal, daemon=True).start()
     threading.Thread(target=poll_bm, daemon=True).start()
+    threading.Thread(target=tune_watch, daemon=True).start()
     srv = ThreadingHTTPServer((CONF["listen"], int(CONF["port"])), Handler)
     srv.daemon_threads = True
     srv.serve_forever()

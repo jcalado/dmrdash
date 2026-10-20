@@ -1,5 +1,5 @@
 #!/bin/sh
 set -e
 if [ "$1" = remove ]; then
-  systemctl disable --now dmrdash >/dev/null 2>&1 || true
+  systemctl disable --now dmrdash dmrdash-rxoffset.path >/dev/null 2>&1 || true
 fi

@@ -1,0 +1,14 @@
+[Unit]
+Description=Apply an RX offset requested by the DMRHost dashboard
+# rxoffset.py takes one number from the request, edits only RXOffset= in MMDVM.ini, and restarts DMRHost.
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 -I /opt/dmrdash/rxoffset.py
+NoNewPrivileges=yes
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+PrivateNetwork=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes

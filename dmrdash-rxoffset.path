@@ -1,0 +1,9 @@
+[Unit]
+Description=Watch for RX offset changes from the DMRHost dashboard
+
+[Path]
+PathChanged=/var/lib/dmrdash/rxoffset.request
+Unit=dmrdash-rxoffset.service
+
+[Install]
+WantedBy=paths.target

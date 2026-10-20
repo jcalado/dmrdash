@@ -96,6 +96,70 @@ class ServerTest(unittest.TestCase):
         # BM's live API wants "group"; its published spec only lists "talkgroup"
         self.assertEqual(dmrdash.tg_body(2, 268912), {"slot": 2, "group": 268912, "talkgroup": 268912})
 
+    def test_rf_ber_history(self):
+        dmrdash.STATE["rfber"].clear()
+        dmrdash.handle_line(100, "I", "    RX Offset: -350Hz")
+        dmrdash.handle_line(101, "M", "DMR Slot 2, received RF voice header from 2680513 to TG 268911")
+        dmrdash.handle_line(104, "M", "DMR Slot 2, RF voice transmission lost from 2680513 to TG 268911, 2.6 seconds, BER: 9.9%")
+        dmrdash.handle_line(110, "M", "DMR Slot 1, received network end of voice transmission from 2680875 to TG 268, 6.6 seconds, 0% packet loss, BER: 0.1%")
+        s = json.loads(self.req("GET", "/api/state")[1])
+        self.assertEqual(s["rf"]["offset"], -350)
+        self.assertEqual(s["rf"]["overs"], [{"ts": 104, "ber": 9.9, "dur": 2.6, "lost": True, "slot": 2,
+                                             "dst": "268911", "group": True, "off": -350}])
+
+    def test_tune_search(self):
+        # BER by offset as measured on the real hotspot on 2026-10-20 (0 Hz was where it started)
+        ber = {0: 3.0, 150: 8.9, -150: 0.7, -300: 0.25, -450: 0.4, -375: 0.2}
+        steps, step, path = [{"off": 0, "bers": [ber[0]]}], 150, []
+        while True:
+            nxt, step = dmrdash.tune_next(steps, step, 0)
+            if nxt is None:
+                break
+            path.append(nxt)
+            steps.append({"off": nxt, "bers": [ber[nxt]]})
+        self.assertEqual(path, [-150, -300, -450, -375])  # -375 is then bracketed by measured offsets
+
+    def test_tune_run(self):
+        req = dmrdash.REQUEST_PATH
+        st = dmrdash.STATE
+        dmrdash.handle_line(1000, "I", "    RX Offset: 0Hz")
+        over = lambda ts, ber, secs=4.0: (
+            dmrdash.handle_line(ts, "M", "DMR Slot 1, received RF voice header from 2680513 to 2680718"),
+            dmrdash.handle_line(ts + secs, "M", f"DMR Slot 1, received RF end of voice transmission from 2680513 to 2680718, {secs} seconds, BER: {ber}%"))
+        self.assertEqual(self.req("POST", "/api/bm", {"action": "tuneStart"}, {"X-Dmrdash-Pin": "4321"})[0], 200)
+        over(1010, 3.0, secs=0.5)  # too short to count
+        for t, b in ((1020, 3.1), (1030, 2.9), (1040, 3.0)):
+            over(t, b)
+        t = dmrdash.TUNE
+        self.assertEqual((t["target"], t["pending"], len(t["steps"])), (-150, True, 2))
+        with open(req) as f:
+            self.assertEqual(f.read(), "-150\n")
+        over(1050, 0.1)  # DMRHost hasn't restarted on -150 yet: ignored
+        self.assertEqual(t["steps"][-1]["bers"], [])
+        dmrdash.handle_line(1060, "I", "    RX Offset: -150Hz")
+        self.assertFalse(t["pending"])
+        self.assertEqual(st["rxoffset"], -150)
+        s = json.loads(self.req("GET", "/api/state")[1])
+        self.assertEqual(s["rf"]["tune"]["state"], "running")
+        self.assertEqual(self.req("POST", "/api/bm", {"action": "tuneStop"}, {"X-Dmrdash-Pin": "4321"})[0], 200)
+        self.assertEqual(dmrdash.TUNE["state"], "idle")
+        with open(req) as f:
+            self.assertEqual(f.read(), "0\n")  # back to where it started
+        status, data = self.req("POST", "/api/bm", {"action": "tryOffset", "hz": 99999}, {"X-Dmrdash-Pin": "4321"})
+        self.assertEqual(status, 400)
+
+    def test_helper_edits_only_modem_rxoffset(self):
+        spec = importlib.util.spec_from_file_location("rxoffset", os.path.join(ROOT, "rxoffset.py"))
+        rx = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(rx)
+        ini = os.path.join(TMP, "MMDVM.ini")
+        with open(ini, "w") as f:
+            f.write("[General]\nRXOffset=7\n[Modem]\nPort=/dev/ttyAMA0\nRXOffset=0\nTXOffset=0\n[DMR]\nColorCode=1\n")
+        self.assertTrue(rx.set_offset(ini, -350))
+        with open(ini) as f:
+            self.assertEqual(f.read(), "[General]\nRXOffset=7\n[Modem]\nPort=/dev/ttyAMA0\nRXOffset=-350\nTXOffset=0\n[DMR]\nColorCode=1\n")
+        self.assertFalse(rx.set_offset(ini, -350))
+
 
 if __name__ == "__main__":
     unittest.main()

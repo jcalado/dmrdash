@@ -17,7 +17,11 @@ if [ "$1" = configure ]; then
   if grep -q '^Description=DMRHost dashboard' /etc/systemd/system/dmrdash.service 2>/dev/null; then
     rm -f /etc/systemd/system/dmrdash.service
   fi
+  for u in dmrdash-rxoffset.path dmrdash-rxoffset.service; do
+    grep -q 'DMRHost dashboard' "/etc/systemd/system/$u" 2>/dev/null && rm -f "/etc/systemd/system/$u"
+  done
   systemctl daemon-reload
   systemctl enable dmrdash >/dev/null 2>&1
   systemctl restart dmrdash
+  systemctl enable --now dmrdash-rxoffset.path >/dev/null 2>&1
 fi

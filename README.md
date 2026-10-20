@@ -21,10 +21,14 @@ talkgroups from your phone without logging in to SelfCare.
   - Sort by any column, filter by callsign or talkgroup, and hide kerchunks.
   - Colour rows by caller, talkgroup or timeslot.
   - Callsigns link to QRZ.com, and talkgroups open in BrandMeister Hoseline.
+- **RF BER trend:** the BER of each over from your radio, with RX offset changes marked.
+- **RX offset tuning:** when your BER stays high, the dashboard suggests an offset from your recent overs.
+  A tuning run steps the offset while you key up, then asks before keeping the best one.
 - **Live log:** an MMDVM-style tail of the hotspot log, kept in RAM.
+- **Your layout:** drag Last heard, RF BER and Live log into the order you like. Each browser remembers its own order.
 - **Light on the Pi:**
   - Python standard library only, about 26 MB of memory, and no build step.
-  - Nothing is written to the SD card in normal use. Only saving a preset writes a small file.
+  - Nothing is written to the SD card in normal use. Only saving a preset or changing the RX offset writes a small file.
 
 <br clear="right">
 
@@ -86,10 +90,11 @@ receives the key.
 |---|---|---|
 | `device_id` | `0` | Your BrandMeister hotspot ID: DMR ID plus SSID, as in `[General] Id=` of `/etc/MMDVM.ini`. |
 | `api_key` | `""` | SelfCare API key. Empty means read-only. |
-| `pin` | `""` | When set, every change (talkgroups, presets, Stop call, clearing events) asks for this PIN once per browser tab. |
+| `pin` | `""` | When set, every change (talkgroups, presets, Stop call, RX offset, clearing events) asks for this PIN once per browser tab. |
 | `port` | `8080` | HTTP port. |
 | `listen` | `"0.0.0.0"` | Address to listen on. Use `"127.0.0.1"` behind a reverse proxy. |
-| `unit` | `"dmrhost"` | systemd unit whose journal is followed. |
+| `unit` | `"dmrhost"` | systemd unit whose journal is followed, and which an RX offset change restarts. |
+| `mmdvm_ini` | `"/etc/MMDVM.ini"` | Hotspot config whose `[Modem] RXOffset=` the tuning helper edits. |
 | `user_csv` | `"/usr/local/etc/user.csv"` | RadioID user file used for names. DMRHost installs it here. |
 | `lastheard_size` | `50` | Calls kept in Last heard. |
 | `bm_poll_seconds` | `60` | How often BrandMeister is asked for link and subscription status. |
@@ -105,7 +110,13 @@ dmrdash is meant for your **home LAN**. It has no user accounts.
 - **Cross-site requests:** other websites can't use your browser to make changes. Changes need a custom
   header and a JSON body, and unknown `Host` names are refused (a DNS-rebinding guard).
 - **Sandboxing:** the service runs as its own user, sandboxed by systemd. It can read the journal but
-  can't write anywhere except its preset file.
+  can't write anywhere except its state folder (presets and the RX offset request).
+- **RX offset changes:** the dashboard can't edit the hotspot config itself. It writes the wanted offset
+  to `/var/lib/dmrdash/rxoffset.request`, and the root-run `dmrdash-rxoffset.path` and `.service` units
+  pass it to `rxoffset.py`. That script accepts only a whole number within ±3000 Hz, changes only
+  `RXOffset=` in the `[Modem]` section, and restarts the hotspot service. Each change cuts any call
+  in progress, and like other changes it needs the PIN when one is set. To turn the feature off,
+  run `sudo systemctl disable --now dmrdash-rxoffset.path`.
 
 ## Update and uninstall
 
@@ -125,6 +136,8 @@ dmrdash is meant for your **home LAN**. It has no user accounts.
 - **"BrandMeister API unreachable":** the Pi needs internet access to `api.brandmeister.network`.
 - **HTTP 401/403 from BrandMeister when changing talkgroups:** the API key is wrong or expired. Make a
   new one in SelfCare.
+- **"DMRHost didn't come back with RX offset …":** check the helper with
+  `systemctl status dmrdash-rxoffset.path` and `journalctl -u dmrdash-rxoffset -n 20`.
 
 ## Development
 

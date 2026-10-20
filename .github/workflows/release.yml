@@ -19,7 +19,8 @@ jobs:
       - name: Build
         run: |
           mkdir -p dist/stage/dmrdash
-          cp -r dmrdash.py index.html dmrdash.service dmrdash.conf.example install.sh \
+          cp -r dmrdash.py index.html rxoffset.py dmrdash.service dmrdash-rxoffset.path dmrdash-rxoffset.service \
+                dmrdash.conf.example install.sh \
                 README.md LICENSE NOTICE licenses dist/stage/dmrdash/
           tar -czf dist/dmrdash.tar.gz -C dist/stage dmrdash
           cp install.sh dist/install.sh
