@@ -38,6 +38,7 @@ if [ "$MODE" != install ]; then
   for u in $HELPER_UNITS; do rm -f "/etc/systemd/system/$u"; done
   systemctl daemon-reload
   rm -rf "$DEST"
+  rm -f /usr/local/bin/dmrdash-tui
   if [ "$MODE" = purge ]; then
     rm -f "$CONF"
     rm -rf /var/lib/dmrdash
@@ -78,7 +79,8 @@ python3 -c 'import sys; sys.exit(sys.version_info < (3, 9))' || die "needs Pytho
 id dmrdash >/dev/null 2>&1 || useradd --system --no-create-home --shell /usr/sbin/nologin dmrdash
 install -d -m 0755 "$DEST"
 install -m 0644 "$SRC/dmrdash.py" "$SRC/index.html" "$DEST/"
-install -m 0755 "$SRC/rxoffset.py" "$SRC/power.py" "$DEST/"
+install -m 0755 "$SRC/rxoffset.py" "$SRC/power.py" "$SRC/tui.py" "$DEST/"
+ln -sf "$DEST/tui.py" /usr/local/bin/dmrdash-tui
 NEW=0
 if [ ! -f "$CONF" ]; then
   install -m 0640 -g dmrdash "$SRC/dmrdash.conf.example" "$CONF"

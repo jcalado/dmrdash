@@ -25,6 +25,8 @@ talkgroups from your phone without logging in to SelfCare.
 - **RX offset tuning:** when your BER stays high, the dashboard suggests an offset from your recent overs.
   A tuning run steps the offset while you key up, then asks before keeping the best one.
 - **Live log:** an MMDVM-style tail of the hotspot log, kept in RAM.
+- **Terminal view:** `dmrdash-tui` shows both timeslots, talkgroups, last heard and the live log in a terminal,
+  for when you're on the Pi over SSH. It is read-only.
 - **Your layout:** drag Last heard, RF BER and Live log into the order you like. Each browser remembers its own order.
 - **Light on the Pi:**
   - Python standard library only, about 26 MB of memory, and no build step.
@@ -81,6 +83,17 @@ Without a key the dashboard still works, in read-only mode.
 
 The key stays on the Pi: only the dashboard's service user can read the config file, and the browser never
 receives the key.
+
+## Terminal view
+
+```sh
+dmrdash-tui                                    # on the Pi, over SSH
+dmrdash-tui --url http://dmrhost.local:8080    # from another machine (needs /opt/dmrdash/tui.py, or a copy of it)
+```
+
+It needs a terminal of at least 60×16 and redraws as you resize. Keys: ↑/↓ (or j/k) select a call,
+f shows only that callsign, g only that talkgroup, x or Esc clears the filter, l switches to the live log,
+q quits. `--ascii` draws without box characters.
 
 ## Configuration
 
