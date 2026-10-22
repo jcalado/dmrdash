@@ -160,6 +160,35 @@ class ServerTest(unittest.TestCase):
             self.assertEqual(f.read(), "[General]\nRXOffset=7\n[Modem]\nPort=/dev/ttyAMA0\nRXOffset=-350\nTXOffset=0\n[DMR]\nColorCode=1\n")
         self.assertFalse(rx.set_offset(ini, -350))
 
+    def test_power_request(self):
+        pin = {"X-Dmrdash-Pin": "4321"}
+        self.assertTrue(json.loads(self.req("GET", "/api/state")[1])["can_power"])
+        status, data = self.req("POST", "/api/bm", {"action": "power", "what": "reboot"}, pin)
+        self.assertEqual(status, 200, data)
+        with open(dmrdash.POWER_PATH) as f:
+            self.assertEqual(f.read(), "reboot\n")
+        for what in ("halt", "reboot; rm -rf /", None):
+            self.assertEqual(self.req("POST", "/api/bm", {"action": "power", "what": what}, pin)[0], 400)
+        with open(dmrdash.POWER_PATH) as f:
+            self.assertEqual(f.read(), "reboot\n")  # refused requests never reach the file
+
+    def test_power_helper_checks_request(self):
+        spec = importlib.util.spec_from_file_location("power", os.path.join(ROOT, "power.py"))
+        pw = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(pw)
+        pw.REQUEST = os.path.join(TMP, "power.test")
+        with open(pw.REQUEST, "w") as f:
+            f.write("poweroff\n")
+        self.assertEqual(pw.read_request(), "poweroff")
+        old = os.stat(pw.REQUEST).st_mtime - 120
+        os.utime(pw.REQUEST, (old, old))
+        with self.assertRaises(SystemExit):  # stale: never acts on a leftover file
+            pw.read_request()
+        with open(pw.REQUEST, "w") as f:
+            f.write("halt\n")
+        with self.assertRaises(SystemExit):
+            pw.read_request()
+
 
 if __name__ == "__main__":
     unittest.main()

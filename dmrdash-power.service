@@ -1,0 +1,14 @@
+[Unit]
+Description=Restart or shut down the Pi as requested by the DMRHost dashboard
+# power.py takes one word from the request, "reboot" or "poweroff", and passes it to systemctl.
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 -I /opt/dmrdash/power.py
+NoNewPrivileges=yes
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+PrivateNetwork=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes

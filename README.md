@@ -110,13 +110,18 @@ dmrdash is meant for your **home LAN**. It has no user accounts.
 - **Cross-site requests:** other websites can't use your browser to make changes. Changes need a custom
   header and a JSON body, and unknown `Host` names are refused (a DNS-rebinding guard).
 - **Sandboxing:** the service runs as its own user, sandboxed by systemd. It can read the journal but
-  can't write anywhere except its state folder (presets and the RX offset request).
+  can't write anywhere except its state folder (presets, and the RX offset and power requests).
 - **RX offset changes:** the dashboard can't edit the hotspot config itself. It writes the wanted offset
   to `/var/lib/dmrdash/rxoffset.request`, and the root-run `dmrdash-rxoffset.path` and `.service` units
   pass it to `rxoffset.py`. That script accepts only a whole number within ±3000 Hz, changes only
   `RXOffset=` in the `[Modem]` section, and restarts the hotspot service. Each change cuts any call
   in progress, and like other changes it needs the PIN when one is set. To turn the feature off,
   run `sudo systemctl disable --now dmrdash-rxoffset.path`.
+- **Restart and shut down:** the same split. The (i) popover's Restart and Shut down keys ask for
+  confirmation, then the dashboard writes `reboot` or `poweroff` to `/var/lib/dmrdash/power.request`.
+  The root-run `dmrdash-power.path` and `.service` units pass it to `power.py`, which accepts only those
+  two words, ignores a request older than a minute, and runs `systemctl reboot` or `systemctl poweroff`.
+  These need the PIN when one is set. To turn them off, run `sudo systemctl disable --now dmrdash-power.path`.
 
 ## Update and uninstall
 
@@ -138,6 +143,8 @@ dmrdash is meant for your **home LAN**. It has no user accounts.
   new one in SelfCare.
 - **"DMRHost didn't come back with RX offset …":** check the helper with
   `systemctl status dmrdash-rxoffset.path` and `journalctl -u dmrdash-rxoffset -n 20`.
+- **Restart or Shut down does nothing:** check `systemctl status dmrdash-power.path` and
+  `journalctl -u dmrdash-power -n 20`.
 
 ## Development
 

@@ -14,7 +14,7 @@ REPO=jcalado/dmrdash
 CONF=/etc/dmrdash.conf
 DEST=/opt/dmrdash
 UNIT=/etc/systemd/system/dmrdash.service
-HELPER_UNITS="dmrdash-rxoffset.path dmrdash-rxoffset.service"
+HELPER_UNITS="dmrdash-rxoffset.path dmrdash-rxoffset.service dmrdash-power.path dmrdash-power.service"
 
 say() { printf '%s\n' "$*"; }
 die() { printf 'dmrdash: %s\n' "$*" >&2; exit 1; }
@@ -33,7 +33,7 @@ done
 [ "$(id -u)" = 0 ] || die "run as root (sudo)"
 
 if [ "$MODE" != install ]; then
-  systemctl disable --now dmrdash dmrdash-rxoffset.path >/dev/null 2>&1 || true
+  systemctl disable --now dmrdash dmrdash-rxoffset.path dmrdash-power.path >/dev/null 2>&1 || true
   rm -f "$UNIT"
   for u in $HELPER_UNITS; do rm -f "/etc/systemd/system/$u"; done
   systemctl daemon-reload
@@ -78,7 +78,7 @@ python3 -c 'import sys; sys.exit(sys.version_info < (3, 9))' || die "needs Pytho
 id dmrdash >/dev/null 2>&1 || useradd --system --no-create-home --shell /usr/sbin/nologin dmrdash
 install -d -m 0755 "$DEST"
 install -m 0644 "$SRC/dmrdash.py" "$SRC/index.html" "$DEST/"
-install -m 0755 "$SRC/rxoffset.py" "$DEST/"
+install -m 0755 "$SRC/rxoffset.py" "$SRC/power.py" "$DEST/"
 NEW=0
 if [ ! -f "$CONF" ]; then
   install -m 0640 -g dmrdash "$SRC/dmrdash.conf.example" "$CONF"
@@ -142,12 +142,13 @@ fi
 
 # --- service -----------------------------------------------------------------
 install -m 0644 "$SRC/dmrdash.service" "$UNIT"
-# the root-run helper that applies RX offsets the dashboard asks for (only RXOffset=, then a DMRHost restart)
+# root-run helpers: one applies RX offsets the dashboard asks for (only RXOffset=, then a DMRHost restart),
+# the other restarts or shuts down the Pi
 for u in $HELPER_UNITS; do install -m 0644 "$SRC/$u" "/etc/systemd/system/$u"; done
 systemctl daemon-reload
 systemctl enable dmrdash >/dev/null 2>&1
 systemctl restart dmrdash
-systemctl enable --now dmrdash-rxoffset.path >/dev/null 2>&1
+systemctl enable --now dmrdash-rxoffset.path dmrdash-power.path >/dev/null 2>&1
 
 HOSTUNIT=$(conf unit)
 HOSTUNIT=${HOSTUNIT:-dmrhost}

@@ -134,6 +134,10 @@ h2.lg { margin: 0; }
   text-decoration: underline; text-decoration-color: var(--rule-2); text-underline-offset: 3px; }
 .evhead .link:hover:not(:disabled) { color: var(--white); text-decoration-color: var(--legend); }
 .evhead .link:disabled { opacity: .45; cursor: default; text-decoration: none; }
+/* restart / shut down the Pi, at the foot of the station popover */
+.power { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; padding: 10px 4px 0; border-top: 1px solid var(--row); }
+.power h3 { margin: 0 auto 0 0; }
+.power .none { margin: 0; flex-basis: 100%; }
 /* live log: a RAM-only tail of the DMRHost journal */
 .livelog { padding-bottom: 0; overflow: hidden; }
 .livelog .logbar { gap: 6px 12px; }
@@ -366,13 +370,13 @@ svg.ic { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-wid
   font: 700 14px/1 var(--mono); padding: 0 8px; }
 .addform input::placeholder { color: var(--lcd-dim); }
 .addform .hint { font-size: 12.5px; color: var(--legend); }
-.pindlg { border: 1px solid var(--rule-2); border-radius: 10px; background: var(--panel-2); color: var(--white); padding: 16px; width: min(320px, calc(100vw - 32px)); }
-.pindlg::backdrop { background: rgb(0 0 0 / .55); }
-.pindlg h3 { margin: 0 0 8px; }
-.pindlg p { margin: 0 0 12px; font-size: 13.5px; color: var(--legend); }
+.pindlg, .cfmdlg { border: 1px solid var(--rule-2); border-radius: 10px; background: var(--panel-2); color: var(--white); padding: 16px; width: min(320px, calc(100vw - 32px)); }
+.pindlg::backdrop, .cfmdlg::backdrop { background: rgb(0 0 0 / .55); }
+.pindlg h3, .cfmdlg h3 { margin: 0 0 8px; }
+.pindlg p, .cfmdlg p { margin: 0 0 12px; font-size: 13.5px; color: var(--legend); }
 .pindlg p.bad { color: var(--fail-text); }
 .pindlg input { width: 100%; height: 38px; border-radius: 6px; border: 1px solid var(--legend); background: var(--lcd); color: var(--lcd-ink); font: 700 16px/1 var(--mono); padding: 0 10px; letter-spacing: .2em; }
-.pindlg .row { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+.pindlg .row, .cfmdlg .row { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
 .slotmsg { margin: 8px 2px 0; min-height: 18px; font-size: 13px; color: var(--legend); display: flex; gap: 10px; align-items: center; }
 .slotmsg.err { color: var(--fail-text); }
 .slotmsg button { border: 0; background: none; color: var(--white); font: 600 13px var(--sans); cursor: pointer; padding: 0; text-decoration: underline; text-underline-offset: 3px; }
@@ -451,6 +455,7 @@ dt { color: var(--legend-dim); } dd { margin: 0; overflow-wrap: anywhere; } dd.n
       <div class="pop down info-pop" id="pop3" hidden>
         <h3 class="lg">Station</h3><dl id="station"></dl>
         <div class="evhead"><h3 class="lg">Events</h3><button class="link" id="evclear" type="button">Clear</button></div><ul class="ev" id="events"></ul>
+        <div class="power" id="power"></div>
       </div>
     </div>
   </header>
@@ -503,6 +508,14 @@ dt { color: var(--legend-dim); } dd { margin: 0; overflow-wrap: anywhere; } dd.n
   </form>
 </dialog>
 
+<dialog class="cfmdlg" id="powdlg" aria-labelledby="powtitle" aria-describedby="powwhy">
+  <form method="dialog">
+    <h3 class="lg" id="powtitle"></h3>
+    <p id="powwhy"></p>
+    <div class="row"><button class="key sm act" value="" id="powcancel">Cancel</button><button class="key sm act confirm" value="ok" id="powok"></button></div>
+  </form>
+</dialog>
+
 <script>
 "use strict";
 const ICONS = {
@@ -520,6 +533,8 @@ const ICONS = {
   static: '<path d="M8 14V9.5"/><path d="M4 9.5h8L10.5 3h-5z"/>',
   dynamic: '<path d="M10 2L5 8h6l-5 6"/>',
   timed: '<circle cx="8" cy="8" r="6"/><path d="M8 4.5V8h3"/>',
+  power: '<path d="M8 2v6"/><path d="M4.6 4.3a5.2 5.2 0 1 0 6.8 0"/>',
+  restart: '<path d="M13 8a5 5 0 1 1-1.5-3.6"/><path d="M13 2.5v3h-3"/>',
 };
 function icon(name) {
   const s = document.createElementNS("http://www.w3.org/2000/svg", "svg");
@@ -579,6 +594,9 @@ function health() {
     alarm = ["BrandMeister link " + (net === "login failed" ? "login failed" : "lost"),
       (net === "login failed" ? "The master rejected the hotspot password. " : "Retrying the master since " + ago(S.network.since) + " ago. ")
       + "RF still works locally; nothing reaches the network."];
+  if (ui.power) alarm = ui.power.what === "reboot"
+    ? ["Restarting the hotspot", "Off the air for a minute or so. This page reconnects by itself."]
+    : ["Shutting down the hotspot", "Once the Pi's green LED stops flashing it is safe to unplug. Plug it back in to start it again."];
   if (offline) leds.forEach((l) => { l[1] = "warn"; });
   return { leds, alarm };
 }
@@ -982,6 +1000,40 @@ function syncInfo() {
   $("ibtn").setAttribute("aria-expanded", String(ui.menu[3]));
 }
 
+/* ---------------- restart / shut down ---------------- */
+function renderPower() {
+  const off = !!ui.busy || !!ui.power;
+  fill($("power"), h("h3", { class: "lg" }, "Pi"), S.can_power
+    ? [h("button", { class: "key sm act", id: "pwreboot", type: "button", disabled: off, onclick: () => powerAct("reboot") }, icon("restart"), "Restart"),
+       h("button", { class: "key sm act warn", id: "pwoff", type: "button", disabled: off, onclick: () => powerAct("poweroff") }, icon("power"), "Shut down")]
+    : h("p", { class: "none" }, "Restart and shut down need the dmrdash-power helper; rerun install.sh."));
+}
+function askPower(what) {
+  const d = $("powdlg"), reboot = what === "reboot";
+  $("powtitle").textContent = reboot ? "Restart the hotspot?" : "Shut down the hotspot?";
+  $("powwhy").textContent = reboot
+    ? "The Pi reboots, cutting any call in progress. DMRHost is off the air for about a minute, and this page reconnects by itself."
+    : "The Pi shuts down and stays off the air. Nothing on the network can turn it back on: its power has to be unplugged and plugged in again.";
+  $("powok").textContent = reboot ? "Restart" : "Shut down";
+  return new Promise((resolve) => {
+    d.addEventListener("close", () => resolve(d.returnValue === "ok"), { once: true });
+    d.returnValue = "";
+    d.showModal(); $("powcancel").focus();  // the safe choice has focus, so a stray Enter cancels
+  });
+}
+async function powerAct(what) {
+  if (ui.busy || ui.power) return;
+  ui.menu[3] = false; syncInfo();
+  if (!(await askPower(what))) { focusId("ibtn"); return; }
+  ui.busy = "power"; ui.msg[0] = { text: "Working…" }; render(true);
+  try {
+    const { ok, status, j } = await post({ action: "power", what });
+    if (ok) { ui.power = { what, down: false }; ui.msg[0] = null; }
+    else say(0, j.error || "Failed (HTTP " + status + ")", true);
+  } catch (e) { say(0, "Can't reach the dashboard on the Pi", true); }
+  ui.busy = null; render(true);
+}
+
 /* ---------------- presets: snapshots of both slots' static TGs ---------------- */
 const tgList = (tgs) => tgs.length ? tgs.join(" ") : "none";
 const presetSummary = (p) => "TS1 " + tgList(p.slots["1"] || []) + " · TS2 " + tgList(p.slots["2"] || []) + (p.drop_dynamic ? " · drops dynamics" : "");
@@ -1128,7 +1180,7 @@ function render(force) {
   renderStrip();
   renderGlobal(force);
   for (const n of [1, 2]) renderVfo(n, force);
-  renderLog(); renderBer(force); renderStation(); renderEvents();
+  renderLog(); renderBer(force); renderStation(); renderEvents(); renderPower();
   if (focused && $(focused)) $(focused).focus();
 }
 
@@ -1136,7 +1188,10 @@ async function poll() {
   try {
     const r = await fetch("/api/state", { cache: "no-store" });
     if (r.ok) { S = await r.json(); skew = S.now - Date.now() / 1000; lastOk = now(); everOk = true; }
-  } catch (e) { /* surfaced as the offline alarm */ }
+    if (ui.power && !r.ok) ui.power.down = true;
+    // back after going away: the restart finished (or a shut-down Pi was plugged in again)
+    else if (ui.power && ui.power.down) { ui.power = null; say(0, "The hotspot is back"); }
+  } catch (e) { if (ui.power) ui.power.down = true; /* otherwise surfaced as the offline alarm */ }
   render();
   pollLog();
 }

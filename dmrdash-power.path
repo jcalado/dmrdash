@@ -1,0 +1,9 @@
+[Unit]
+Description=Watch for restart and shut down requests from the DMRHost dashboard
+
+[Path]
+PathChanged=/var/lib/dmrdash/power.request
+Unit=dmrdash-power.service
+
+[Install]
+WantedBy=paths.target

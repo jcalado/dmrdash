@@ -439,6 +439,8 @@ def bm_action(body):
         return preset_apply(body)
     elif action in ("tuneStart", "tuneStop", "tuneKeep", "tuneBack", "tryOffset"):
         return tune_action(action, body)
+    elif action == "power":
+        return request_power(body.get("what"))
     else:
         raise BMError("unknown action")
     bm_refresh()
@@ -709,6 +711,33 @@ def tune_action(action, body):
     return {"ok": True}
 
 
+# --- restart / shut down ----------------------------------------------------
+# Same split as the RX offset: the dashboard only writes "reboot" or "poweroff" to a request file,
+# and the root-run dmrdash-power.path/.service (power.py) checks it and asks systemd.
+
+POWER_PATH = os.path.join(STATE_DIR, "power.request")
+
+
+def can_power():
+    return os.path.exists(os.path.join(HERE, "power.py"))
+
+
+def request_power(what):
+    if what not in ("reboot", "poweroff"):
+        raise BMError("what must be reboot or poweroff")
+    if not can_power():
+        raise BMError("Restart and shut down need the dmrdash-power helper; rerun install.sh")
+    with LOCK:
+        if TUNE["state"] in ("running", "done"):
+            raise BMError("Finish the RX offset tuning run first")
+    try:
+        with open(POWER_PATH, "w") as f:
+            f.write(what + "\n")
+    except OSError as e:
+        raise BMError(f"Can't write the power request on the Pi: {e.strerror or e}")
+    return {"ok": True}
+
+
 # --- HTTP -------------------------------------------------------------------
 
 def local_ip():
@@ -733,6 +762,7 @@ def snapshot():
             "hostname": os.uname().nodename,
             "ip": local_ip(),
             "can_manage": bool(CONF["api_key"]),
+            "can_power": can_power(),
             "pin": bool(CONF["pin"]),
             "host": dict(STATE["host"]),
             "modem": dict(STATE["modem"]),
