@@ -233,16 +233,16 @@ Flat. There are no shadows anywhere. Depth is tonal and by hairline: page graphi
 
 Softly squared hardware. Modules and boxes use 10px corners, LCD windows, keys, inputs and the alarm use 6px, and small tags (the A/B slot tag, RF/NET/LAST tag) use 3px. LEDs are 9-10px circles. Strokes are 1px by default; the source tag uses 1.5px.
 
-Talkgroup subscription type is spelled out in words (dynamic, timed, auto-static), never encoded in border style.
+Talkgroup subscription type is spelled out in words (dynamic, scheduled, auto-static), never encoded in border style.
 
 ## Components
 
 ### Keys (buttons)
 Hard keys on the panel, tactile by border, never by shadow.
 - **Shape:** 6px corners, 34px tall, 10px horizontal padding, key graphite cap with a 1px key-rule border.
-- **Small key** (Edit, Drop dynamic, Done, Stop call): 30px tall, 12.5px text, 14px stroked line icon.
+- **Small key** (Edit, Drop dynamic, Close, Stop call): 30px tall, 12.5px text, 14px stroked line icon.
 - **Action key** (Stop call): legend-tone text at 600; TX-red border on hover; armed state reads "Cut CALLSIGN?".
-- **Remove key:** a spelled-out "Remove" on each static row of the editor; transparent with a key-rule border, danger ground with TX border and TX text on hover.
+- **Remove key:** a spelled-out "Remove" on each static and scheduled row of the editor; transparent with a key-rule border, danger ground with TX border and TX text on hover.
 - **Hover / Focus:** border brightens to the legend tone (0.15s ease-out). Focus is a 2px white outline offset 2px. Interrupting actions turn their border TX red on hover, and when armed for confirmation show danger ground, TX border and white text.
 - **Disabled:** 45% opacity; in-flight keys 60%.
 
@@ -257,11 +257,16 @@ Hard keys on the panel, tactile by border, never by shadow.
 - Full-width under the strip: alarm ground, 1px TX-red border, 6px corners, warning line icon, bold headline then plain explanation.
 
 ### VFO Module (signature)
-- A module-graphite card holding: a head row with the A/B slot tag, the TIMESLOT legend, the slot state LED (TX / RX / IDLE) at the right and, only during a network call, the Stop call key beside it; the LCD window; the talkgroup editor when open; a footer with the message line on the left and the ⋯ talkgroup key on the right.
-- **Talkgroup menu (⋯):** a 34px square small key at the footer's right. It opens a popover upward, right-aligned: panel ground, dim-legend border, 8px corners, a neutral drop shadow (the only shadow on the page, for a layer that floats over the LCD). Inside: a "TALKGROUPS · TSn" legend, one 34px row per TG (bold mono number, sans name, dim mono type for dynamic/timed/auto-static), the TG carrying the current call in RX text, and a full-width "Edit talkgroups" key when an API key is set. It closes on Escape (focus returns to ⋯), on a tap outside, or when the other slot's menu opens, and it does not re-render on polls while open.
-- **Talkgroup editor (on demand):** opens between the LCD and the footer in a panel-ground box with a dim-legend border. One 40px row per TG: mono number, sans name, then a Remove key (static) or the type in dim mono (dynamic, timed: read-only). The foot holds the LCD-style add field with Add and the name hint, Drop dynamic when any exist, and Done. Escape or Done closes it and returns focus to the ⋯ key. The editor does not re-render on polls while open, so typing is never interrupted.
+- A module-graphite card holding: a head row with the A/B slot tag, the TIMESLOT legend, the slot state LED (TX / RX / IDLE) at the right and, only during a network call, the Stop call key beside it; the LCD window; a footer with the message line on the left and the ⋯ talkgroup key on the right.
+- **Talkgroup menu (⋯):** a 34px square small key at the footer's right. It opens a popover upward, right-aligned: panel ground, dim-legend border, 8px corners, a neutral drop shadow (the only shadow on the page, for a layer that floats over the LCD). Inside: a "TALKGROUPS · TSn" legend, one 34px row per TG (bold mono number, sans name, dim mono type for dynamic/scheduled/auto-static, with a schedule's days and local times), the TG carrying the current call in RX text, and a full-width "Edit talkgroups" key when an API key is set. It closes on Escape (focus returns to ⋯), on a tap outside, or when the other slot's menu opens, and it does not re-render on polls while open.
+- **Edit talkgroups dialog:** a modal `<dialog>` like the PIN dialog (panel-2 ground, rule-2 border, 10px corners, dimmed backdrop), up to 520px wide and the viewport's height less 32px. A "TALKGROUPS · TSn" head with a ✕ small key, then a scrolling body.
+  - Sections under dim legends: Static, Scheduled, and Dynamic (only when any, with Drop dynamic at the legend's right). One 40px row per TG: mono number; sans name with, for scheduled and dynamic TGs, a dim mono line under it ("Weekdays 18:00–20:00 · until 31 Dec 2026", "10m left"); then Remove, with Edit before it on scheduled rows. An ended schedule's line is struck through. A row's tooltip gives the schedule as BrandMeister keeps it, in UTC.
+  - The Add form at the foot, under a rule: a Static / Scheduled segmented control, the LCD-style TG field with its name hint. Scheduled adds seven day toggles (Mo–Su, pressed = key graphite cap with legend border), From and To time fields, and First day and Last day (optional) date fields, all LCD-style. A legend-tone line under them gives the window in UTC as it updates, and says it moves an hour when the clocks change. The message line sits at the foot's left, Add static or Add schedule at its right.
+  - **Editing a schedule:** Edit loads it into the form with focus on From. The form's legend reads "EDIT SCHEDULE · TG n" with a Cancel key at its right in place of Static / Scheduled. The key reads Save schedule, and the row being edited steps up to the key graphite ground. Its exact dates are kept unless the date fields are changed. Saving adds the new schedule and only then removes the old one, so a refused change leaves the old one in place. Cancel returns focus to that row's Edit. A schedule whose days have different times can't be loaded into the form, so its Edit is disabled with a tooltip saying to remove it and add it again.
+  - Times are local, converted with today's UTC offset for every day. A window crossing UTC midnight is stored as two day parts, and parts that join up are shown as one window again. A window whose end is before its start runs into the next day. With no last day, a schedule runs ten years, as on BrandMeister's own dashboard.
+  - Opens from Edit talkgroups in the ⋯ menu with focus in the TG field. Escape, ✕ or a click on the backdrop closes it, and focus returns to the ⋯ key. It does not re-render on polls while open, so typing is never interrupted. After Remove, focus moves to Undo.
 - **LCD window, live:** callsign readout; TG number readout with the TG name; a hairline; then the detail line (operator name, ID, italic alias). The timer sits top right with an RF or NET source tag under it. RF calls tint the whole window LCD blush.
-- **LCD window, idle:** holds the last caller and their TG at reduced size, dimmed, tagged LAST; the detail line gives the name, how long ago, and the static/dynamic/timed counts. With no history it shows a "------" placeholder and "Listening · no calls yet on this slot".
+- **LCD window, idle:** holds the last caller and their TG at reduced size, dimmed, tagged LAST; the detail line gives the name, how long ago, and the static/dynamic/scheduled counts. With no history it shows a "------" placeholder and "Listening · no calls yet on this slot".
 
 ### Station and events popover (i)
 - A square small key with a stroked info icon at the far right of the strip opens a downward popover (same shell as Presets, up to 380px wide, scrolls if taller than the window) holding the STATION definition list and the EVENTS list. It closes on Escape, outside tap, or when another menu opens.
@@ -287,7 +292,7 @@ Hard keys on the panel, tactile by border, never by shadow.
 - A "Hide kerchunks" switch sits at the right of the LAST HEARD bar: an engraved-legend label with a 28×16 track (panel ground, rule-2 border) whose thumb slides right and turns white when on; it uses no LED colour. It hides calls shorter than an adjustable cutoff (calls with no duration are kept), shows the "n of 50" count, combines with the filter chips, and is remembered per browser. While on, a "< [1] s" mono number box follows it (0.5 s steps, 0.5–10 s, default 1 s, matching WPSD's kerchunk filter); a cleared field keeps the last good value and is restored on blur.
 
 ### Section order
-- Last heard, RF BER and Live log can be put in any order. Each title bar starts with a grip: a six-dot icon in dim legend on a 22×26 transparent key that turns white on hover.
+- Last heard, RF BER and Live log can be put in any order. Each title bar starts with a grip: a six-dot icon in dim legend on a 22×26 transparent key that turns white on hover. With a mouse the grip stays hidden until the pointer is over its section, and it also shows while focused or dragging. Its space is kept, so titles don't shift when it appears. On touch screens it is always shown.
 - Drag the grip with a mouse or finger. While a section is being dragged, its border lifts to the legend tone, and the other sections jump into place as the pointer passes their middles. Nothing floats and there is no shadow, keeping to the flat panel. Near the window's top or bottom edge the page scrolls, so a section can pass a long Last heard log.
 - Keyboard: focus the grip and use the arrow keys to move the section up or down; a polite live region announces "RF BER moved to position 1 of 3".
 - The order is remembered per browser (localStorage), like the other view settings.

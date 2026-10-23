@@ -96,6 +96,51 @@ class ServerTest(unittest.TestCase):
         # BM's live API wants "group"; its published spec only lists "talkgroup"
         self.assertEqual(dmrdash.tg_body(2, 268912), {"slot": 2, "group": 268912, "talkgroup": 268912})
 
+    def test_timed_bodies(self):
+        # the shape BrandMeister's own dashboard POSTs to /device/{id}/timedtalkgroup, one record per day part
+        body = {"slot": 1, "talkgroup": 3100, "startDate": 1792450800, "endDate": 2108070000,
+                "parts": [{"day": "monday", "start": 81000, "stop": 86400}, {"day": "tuesday", "start": 0, "stop": 3600}]}
+        out = dmrdash.timed_bodies(body)
+        self.assertEqual(out[0], {"talkgroup": 3100, "slot": 1, "startDate": 1792450800, "endDate": 2108070000,
+                                  "monday": 1, "tuesday": 0, "wednesday": 0, "thursday": 0, "friday": 0, "saturday": 0, "sunday": 0,
+                                  "start": 81000, "stop": 86400})
+        self.assertEqual((out[1]["tuesday"], out[1]["monday"], out[1]["stop"]), (1, 0, 3600))
+        bad = [dict(body, talkgroup=9), dict(body, endDate=1000), dict(body, startDate=2108070001),
+               dict(body, parts=[]), dict(body, parts=[{"day": "funday", "start": 0, "stop": 60}]),
+               dict(body, parts=[{"day": "monday", "start": 600, "stop": 600}]), dict(body, parts=[{"day": "monday", "start": 0, "stop": 90000}]),
+               dict(body, parts="x"), {k: v for k, v in body.items() if k != "endDate"}]
+        for b in bad:
+            with self.assertRaises(dmrdash.BMError, msg=b):
+                dmrdash.timed_bodies(b)
+
+    def test_remove_timed_checks_ids(self):
+        for ids in (None, [], ["1"], [0], [True], list(range(1, 16))):
+            status, _ = self.req("POST", "/api/bm", {"action": "removeTimed", "recordids": ids}, {"X-Dmrdash-Pin": "4321"})
+            self.assertEqual(status, 400, ids)
+
+    def test_edit_timed_adds_before_removing(self):
+        calls, real = [], dmrdash.bm_request
+        def fake(method, path, body=None, auth=False):
+            calls.append((method, path))
+            if method == "DELETE":
+                raise dmrdash.BMError("BrandMeister API error HTTP 500")
+            return {}
+        dmrdash.bm_request = fake
+        try:
+            body = {"action": "editTimed", "recordids": [104686], "slot": 1, "talkgroup": 91, "startDate": 1792268966,
+                    "endDate": 2109024000, "parts": [{"day": "saturday", "start": 61200, "stop": 72000}]}
+            status, data = self.req("POST", "/api/bm", body, {"X-Dmrdash-Pin": "4321"})
+            self.assertEqual(status, 400)
+            self.assertIn("couldn't remove the old one", json.loads(data)["error"])
+            writes = [c for c in calls if c[0] != "GET"]
+            self.assertEqual(writes, [("POST", "/device/268000000/timedtalkgroup"), ("DELETE", "/device/268000000/timedtalkgroup/104686")])
+            calls.clear()
+            status, _ = self.req("POST", "/api/bm", dict(body, parts=[]), {"X-Dmrdash-Pin": "4321"})
+            self.assertEqual(status, 400)  # a bad new schedule is refused before anything is removed
+            self.assertEqual([c for c in calls if c[0] != "GET"], [])
+        finally:
+            dmrdash.bm_request = real
+
     def test_rf_ber_history(self):
         dmrdash.STATE["rfber"].clear()
         dmrdash.handle_line(100, "I", "    RX Offset: -350Hz")

@@ -11,10 +11,15 @@ talkgroups from your phone without logging in to SelfCare.
 - **Both timeslots, live:**
   - Callsign, talkgroup, name, talker alias, a TX/RX timer, and RF or network source.
   - Stop call drops the current call route.
-- **Static talkgroups:**
-  - Add and remove statics per slot through the BrandMeister API.
+- **Static and scheduled talkgroups:**
+  - Add and remove statics per slot through the BrandMeister API, in an Edit talkgroups dialog.
+  - Schedule a static TG for some days of the week and a time window (say, weekdays 18:00–20:00),
+    optionally between two dates. You enter local time; BrandMeister keeps schedules in UTC, so
+    they move an hour when the clocks change.
+  - Edit a schedule's TG, days, times or dates. BrandMeister can't update a schedule, so the
+    dashboard adds the changed one first and only then removes the old one.
   - Removal offers Undo.
-  - Dynamic and timed subscriptions are shown alongside.
+  - Dynamic subscriptions are shown alongside, with Drop dynamic.
 - **Presets:** save the current statics as "Everyday", "Net night"…, and switch in one tap. Only the
   difference is changed.
 - **Last heard:**

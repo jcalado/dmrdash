@@ -411,6 +411,56 @@ def tg_body(slot, tg):
     return {"slot": slot, "group": tg, "talkgroup": tg}
 
 
+DAYS = ("monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday")
+
+
+def timed_bodies(body):
+    """BrandMeister bodies for a scheduled static TG, one per UTC day part.
+
+    Not in BM's published API spec: this is what its own dashboard sends to
+    POST /device/{id}/timedtalkgroup. Each record is one weekday with start/stop in seconds
+    of that UTC day, live between startDate and endDate (epoch seconds). The page splits a
+    local-time window into these parts, so a window crossing UTC midnight is two records.
+    """
+    slot, tg = parse_slot_tg(body)
+    if tg <= 90:
+        raise BMError("Scheduled talkgroups must be above 90")
+    try:
+        start_date, end_date = int(body["startDate"]), int(body["endDate"])
+        parts = [(p["day"], int(p["start"]), int(p["stop"])) for p in body["parts"]]
+    except (KeyError, TypeError, ValueError):
+        raise BMError("startDate, endDate and parts (day, start, stop) are required")
+    if not 0 < start_date < end_date or end_date < time.time():
+        raise BMError("The schedule must end after it starts, and in the future")
+    if not 1 <= len(parts) <= 14:
+        raise BMError("A schedule has 1 to 14 day parts")
+    out = []
+    for day, start, stop in parts:
+        if day not in DAYS or not 0 <= start < stop <= 86400:
+            raise BMError("Each part needs a weekday and a start before its stop, within one day")
+        out.append({"talkgroup": tg, "slot": slot, "startDate": start_date, "endDate": end_date,
+                    **{d: int(d == day) for d in DAYS}, "start": start, "stop": stop})
+    return out
+
+
+def record_ids(body):
+    ids = body.get("recordids")
+    if not isinstance(ids, list) or not 1 <= len(ids) <= 14 or not all(isinstance(i, int) and not isinstance(i, bool) and i > 0 for i in ids):
+        raise BMError("recordids must be a list of schedule ids")
+    return ids
+
+
+def add_timed(dev, entries):
+    added = 0
+    try:
+        for entry in entries:
+            bm_request("POST", f"/device/{dev}/timedtalkgroup", entry, auth=True)
+            added += 1
+    except BMError as e:
+        bm_refresh()
+        raise BMError(f"{e} (after adding {added} of the schedule's parts)" if added else str(e))
+
+
 def bm_action(body):
     dev = CONF["device_id"]
     action = body.get("action")
@@ -420,6 +470,22 @@ def bm_action(body):
     elif action == "remove":
         slot, tg = parse_slot_tg(body)
         bm_request("DELETE", f"/device/{dev}/talkgroup/{slot}/{tg}", auth=True)
+    elif action == "addTimed":
+        add_timed(dev, timed_bodies(body))
+    elif action == "removeTimed":
+        for rid in record_ids(body):
+            bm_request("DELETE", f"/device/{dev}/timedtalkgroup/{rid}", auth=True)
+    elif action == "editTimed":
+        # BrandMeister has no update for schedules: add the new one, and only then remove the old,
+        # so a refused change leaves the old schedule in place
+        ids, entries = record_ids(body), timed_bodies(body)
+        add_timed(dev, entries)
+        for rid in ids:
+            try:
+                bm_request("DELETE", f"/device/{dev}/timedtalkgroup/{rid}", auth=True)
+            except BMError as e:
+                bm_refresh()
+                raise BMError(f"Added the new schedule, but couldn't remove the old one: {e}")
     elif action in ("dropDynamicGroups", "dropCallRoute"):
         slot = int(body.get("slot", 0))
         if slot not in (1, 2):

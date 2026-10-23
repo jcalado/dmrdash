@@ -100,8 +100,6 @@ h2.lg { margin: 0; }
 .lcd.tx .via { color: var(--lcd-tx-ink); }
 
 /* talkgroups: summary at rest, editor on demand */
-.mem { margin-top: 12px; }
-.mem:empty { display: none; }
 .pr .n, .er .n { font: 700 13px/1 var(--mono); }
 .vfo-foot { display: flex; align-items: center; gap: 10px; margin-top: 10px; min-height: 30px; }
 .vfo-foot .slotmsg { margin: 0 2px; flex: 1; min-width: 0; }
@@ -187,6 +185,12 @@ h2.lg { margin: 0; }
 ::view-transition-old(*.sec) { display: none; }  /* same box before and after: move it, don't cross-fade it */
 ::view-transition-new(*.sec) { animation: none; }
 .box.dragging .grip { color: var(--white); }
+/* with a mouse the grip shows only while the section is hovered; touch has no hover, so it stays */
+@media (hover: hover) and (pointer: fine) {
+  .grip { opacity: 0; transition: opacity .12s; }
+  .box:hover .grip, .grip:focus-visible, .box.dragging .grip { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) { .grip { transition: none; } }
 .vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .berbox .logbar { gap: 6px 12px; }
 .bersum { position: relative; align-items: center; }
@@ -336,11 +340,45 @@ h2.lg { margin: 0; }
 .flt:hover { color: var(--white); background: var(--rule-2); }
 .flt svg.ic { width: 13px; height: 13px; }
 @media (hover: none) { .flt { display: none; } }
-.editor { border: 1px solid var(--legend-dim); border-radius: 8px; padding: 10px; background: var(--panel); }
-.editor:focus { outline: none; }
-.editor:focus-visible { outline: 2px solid var(--white); outline-offset: 2px; }
-.editor h3 { margin: 0 4px 6px; }
-.editor .none { margin: 6px 4px; color: var(--legend-dim); font-size: 13px; }
+/* Edit talkgroups dialog: header, a scrolling list, the add form at the foot */
+.tgdlg { border: 1px solid var(--rule-2); border-radius: 10px; background: var(--panel-2); color: var(--white); padding: 0;
+  width: min(520px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); overflow: hidden; }
+.tgdlg[open] { display: flex; }
+.tgdlg::backdrop { background: rgb(0 0 0 / .55); }
+.dlg-in { display: flex; flex-direction: column; min-height: 0; width: 100%; }
+.dhead { display: flex; align-items: center; gap: 10px; padding: 12px 12px 10px 16px; border-bottom: 1px solid var(--rule); }
+.dhead h3 { margin: 0; }
+.dhead .dx { margin-left: auto; width: 30px; padding: 0; justify-content: center; }
+.dbody { overflow-y: auto; overscroll-behavior: contain; padding: 4px 16px 16px; }
+.dsec { margin-top: 10px; }
+.dsh { display: flex; align-items: center; gap: 10px; min-height: 30px; margin-bottom: 2px; }
+.dsh h4 { margin: 0; font-size: 11px; }
+.dsh > :not(h4) { margin-left: auto; }
+.dsec .none { margin: 2px 0 6px; color: var(--legend-dim); font-size: 13px; }
+.er .nm { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.er .nm > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.er .when { font: 12px/1.2 var(--mono); color: var(--legend-dim); white-space: normal; }
+.er .when.ended { text-decoration: line-through; }
+.dadd { margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--rule); }
+.dadd .addform { display: flex; margin-top: 6px; }
+.sched { margin-top: 10px; }
+.days { display: flex; gap: 4px; flex-wrap: wrap; border: 0; margin: 0; padding: 0; }
+.days legend { padding: 0; margin-bottom: 6px; font-size: 11px; }
+.day { width: 38px; height: 34px; border: 1px solid var(--rule-2); border-radius: 6px; background: var(--panel); color: var(--legend-dim);
+  font: 600 12.5px/1 var(--sans); cursor: pointer; }
+.day:hover:not(:disabled) { color: var(--white); border-color: var(--legend-dim); }
+.day[aria-pressed="true"] { background: var(--panel-3); border-color: var(--legend); color: var(--white); }
+.day:focus-visible { outline: 2px solid var(--white); outline-offset: 1px; }
+.frow { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 12px; margin-top: 12px; }
+.fld { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.fld .lg { font-size: 11px; }
+.fld input { height: 34px; min-width: 0; border-radius: 6px; border: 1px solid var(--legend); background: var(--lcd); color: var(--lcd-ink);
+  font: 700 14px/1 var(--mono); padding: 0 8px; color-scheme: light; }
+.fld input:focus, .dadd .addform input:focus { outline: 2px solid var(--white); outline-offset: 1px; }
+.sched .phint { margin: 10px 0 0; font-size: 12.5px; color: var(--legend); }
+.dfoot { display: flex; align-items: center; gap: 10px; margin-top: 14px; }
+.dfoot .slotmsg { flex: 1; min-width: 0; margin: 0; }
+.dfoot .key { margin-left: auto; flex: none; }
 .er { display: grid; grid-template-columns: 7ch minmax(0, 1fr) auto; gap: 10px; align-items: center; min-height: 40px; padding-left: 4px; }
 .er + .er { border-top: 1px solid var(--row); }
 .er .nm { color: var(--legend); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -350,8 +388,9 @@ h2.lg { margin: 0; }
   cursor: pointer; transition: border-color .15s ease-out, background-color .15s ease-out, color .15s ease-out; }
 .er .rm:hover:not(:disabled) { border-color: var(--tx); color: var(--tx-text); background: var(--danger-bg); }
 .er .rm:disabled { opacity: .45; cursor: default; }
-.editor .foot { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 8px; padding-top: 10px; border-top: 1px solid var(--rule); }
-.editor .foot .done { margin-left: auto; }
+.er .acts { display: inline-flex; gap: 6px; }
+.er .rm.ed:hover:not(:disabled) { border-color: var(--legend); color: var(--white); background: transparent; }
+.er.editing { background: var(--panel-3); border-radius: 6px; }  /* the schedule the form below is editing */
 .stopbox:empty { display: none; }
 .key { display: inline-flex; align-items: center; gap: 8px; min-height: 34px; padding: 0 10px; border-radius: 6px; border: 1px solid var(--rule-2);
   background: var(--panel-3); color: var(--white); font: 13px/1 var(--sans); max-width: 100%;
@@ -499,6 +538,8 @@ dt { color: var(--legend-dim); } dd { margin: 0; overflow-wrap: anywhere; } dd.n
   <div class="vh" id="ordermsg" aria-live="polite"></div>
 </div>
 
+<dialog class="tgdlg" id="tgdlg" aria-labelledby="tgdlgt"></dialog>
+
 <dialog class="pindlg" id="pindlg" aria-labelledby="pintitle">
   <form method="dialog">
     <h3 class="lg" id="pintitle">PIN</h3>
@@ -558,7 +599,7 @@ const fill = (el, ...kids) => el.replaceChildren(...kids.flat(Infinity).filter((
 const $ = (id) => document.getElementById(id);
 
 let S = null, skew = 0, lastOk = 0, everOk = false;
-const ui = { draft: { 1: "", 2: "" }, editing: { 1: false, 2: false }, menu: { 1: false, 2: false }, hold: { 1: false, 2: false }, confirm: null, busy: null, msg: { 0: null, 1: null, 2: null }, filter: { call: null, tg: null }, psave: false, pdraft: "", pdrop: false };
+const ui = { draft: { 1: "", 2: "" }, dlg: 0, addKind: "static", sched: null, menu: { 1: false, 2: false }, hold: { 1: false, 2: false }, confirm: null, busy: null, msg: { 0: null, 1: null, 2: null }, filter: { call: null, tg: null }, psave: false, pdraft: "", pdrop: false };
 ui.menu[0] = false;
 
 const now = () => Date.now() / 1000 + skew;
@@ -616,7 +657,7 @@ function renderStrip() {
 /* ---------------- VFOs ---------------- */
 function subsFor(slot) {
   const bm = S.bm, f = (t) => Number(t.slot) === slot;
-  return { st: bm.static.filter(f), dy: bm.dynamic.filter(f), ti: bm.timed.filter(f) };
+  return { st: bm.static.filter(f), dy: bm.dynamic.filter(f), ti: schedules(bm.timed.filter(f)) };
 }
 
 // The readout face is proportional, so a long or wide callsign (VK2ABCD, MW0MWW) is measured and shrunk just enough to fit beside the timer.
@@ -654,7 +695,7 @@ function lcdLive(s) {
 
 function lcdIdle(n, subs) {
   const last = S.lastheard.find((c) => c.slot === n);
-  const sub = (kind, list) => { const label = list.length + " " + kind + " talkgroup" + (list.length === 1 ? "" : "s");
+  const sub = (kind, list) => { const label = list.length + " " + (kind === "timed" ? "scheduled" : kind) + " talkgroup" + (list.length === 1 ? "" : "s");
     return h("span", { role: "img", "aria-label": label, title: label }, icon(kind), list.length); };
   const counts = h("span", { class: "subs" }, sub("static", subs.st), sub("dynamic", subs.dy), subs.ti.length ? sub("timed", subs.ti) : null);
   return h("div", { class: "lcd idle" },
@@ -667,12 +708,85 @@ function lcdIdle(n, subs) {
       last ? h("span", {}, ago(last.ts) + " ago") : null, counts));
 }
 
+/* ---------------- scheduled static TGs ----------------
+   BrandMeister stores each as one weekday with start/stop seconds in that UTC day, live between
+   startDate and endDate. The page works in local time: a window is split into UTC day parts to
+   add it, and parts that join up are merged back into one window to show it. */
 const DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
-function schedule(t) {
-  const d = t.data || {}, hm = (s) => String(Math.floor(s / 3600)).padStart(2, "0") + ":" + String(Math.floor(s % 3600 / 60)).padStart(2, "0");
-  const days = DAYS.filter((k) => d[k]).map((k) => k[0].toUpperCase() + k.slice(1, 3));
-  return (days.length === 7 ? "daily" : days.join(" ")) + (d.start != null && d.stop != null ? " " + hm(d.start) + "–" + hm(d.stop) : "");
+const DAY_SHORT = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"], WEEK = 7 * 86400;
+const pad2 = (v) => String(v).padStart(2, "0");
+function daysText(days) {
+  const k = days.join();
+  return k === "0,1,2,3,4,5,6" ? "Daily" : k === "0,1,2,3,4" ? "Weekdays" : k === "5,6" ? "Weekends" : days.map((i) => DAY_SHORT[i]).join(" ");
 }
+// Local time is UTC plus today's offset for every day, so a week's days never straddle a clock change
+const tzOff = () => -new Date().getTimezoneOffset() * 60;
+const wmod = (t) => ((t % WEEK) + WEEK) % WEEK;
+const partIv = (p) => { const i = DAYS.indexOf(p.day); return [i * 86400 + p.start, i * 86400 + p.stop]; };
+const recParts = (r) => { const d = r.data || {}; return DAYS.filter((k) => d[k]).map((day) => ({ day, start: d.start, stop: d.stop })); };
+// join parts that run into each other (also Sunday into Monday), up to a day long
+function mergeIv(iv) {
+  const out = [];
+  for (const [a, b] of iv.slice().sort((x, y) => x[0] - y[0])) {
+    const p = out[out.length - 1];
+    if (p && p[1] === a && b - p[0] <= 86400) p[1] = b; else out.push([a, b]);
+  }
+  const f = out[0], l = out[out.length - 1];
+  if (out.length > 1 && f[0] === 0 && l[1] === WEEK && l[1] - l[0] + f[1] <= 86400) { f[0] = l[0] - WEEK; out.pop(); }
+  return out;
+}
+// UTC week intervals as "Sat 17:00–20:00", windows at the same times sharing one label: "Weekdays 18:00–20:00"
+function windowsText(iv, utc) {
+  const off = utc ? 0 : tzOff(), by = new Map(), hm = (t) => pad2(Math.floor(t / 3600)) + ":" + pad2(Math.floor(t % 3600 / 60));
+  for (const [a, b] of iv) {
+    const s = wmod(a + off), day = Math.floor(s / 86400), t0 = s % 86400, t1 = t0 + (b - a);
+    const t = hm(t0) + "–" + (t1 === 86400 ? "24:00" : hm(t1 % 86400));
+    by.set(t, [...(by.get(t) || []), day]);
+  }
+  return [...by].map(([t, days]) => daysText([...new Set(days)].sort()) + " " + t).join(", ");
+}
+const dateText = (ts) => new Date(ts * 1000).toLocaleDateString([], { day: "numeric", month: "short", year: "numeric" });
+// one entry per TG and date range, holding the records it came from
+function schedules(list) {
+  const by = new Map();
+  for (const r of list) {
+    const d = r.data || {}, k = [r.talkgroup, d.startDate, d.endDate].join("/");
+    if (!by.has(k)) by.set(k, { talkgroup: String(r.talkgroup), from: d.startDate, until: d.endDate, recs: [] });
+    by.get(k).recs.push(r);
+  }
+  return [...by.values()].map((g) => {
+    const iv = mergeIv(g.recs.flatMap(recParts).map(partIv)), t = now();
+    const note = g.until < t ? "ended " + dateText(g.until) : g.from > t ? "from " + dateText(g.from)
+      : g.until - t < 5 * 365 * 86400 ? "until " + dateText(g.until) : "";
+    return { ...g, ids: g.recs.map((r) => r.recordid), text: windowsText(iv, false), utc: windowsText(iv, true) + " UTC", note, ended: g.until < t, form: schedForm(iv) };
+  });
+}
+// the form's days and From/To for merged windows, or null when the days have different times
+function schedForm(iv) {
+  const hm = (t) => pad2(Math.floor(t / 3600)) + ":" + pad2(Math.floor(t % 3600 / 60));
+  const w = iv.map(([a, b]) => { const l = wmod(a + tzOff()); return { day: Math.floor(l / 86400), t0: l % 86400, len: b - a }; });
+  if (!w.length || w.some((x) => x.t0 !== w[0].t0 || x.len !== w[0].len) || w[0].len >= 86400) return null;
+  return { days: [...new Set(w.map((x) => x.day))].sort(), from: hm(w[0].t0), to: hm((w[0].t0 + w[0].len) % 86400) };
+}
+// a local-time window on some weekdays, as BrandMeister's UTC day parts
+function schedParts(days, from, to) {
+  const out = [];
+  for (const i of days) {
+    let t = wmod(i * 86400 + from - tzOff());
+    const end = t + (to > from ? to - from : to + 86400 - from);  // an end before the start runs into the next day
+    while (t < end) {
+      const d0 = Math.floor(t / 86400) * 86400, e = Math.min(end, d0 + 86400);
+      out.push({ day: DAYS[(d0 / 86400) % 7], start: t - d0, stop: e - d0 });
+      t = e;
+    }
+  }
+  return out;
+}
+const secsOf = (v) => { const m = /^(\d\d):(\d\d)/.exec(v || ""); return m ? Number(m[1]) * 3600 + Number(m[2]) * 60 : null; };
+const isoDay = (d) => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+const dayStart = (v, add = 0) => { const [y, m, d] = v.split("-").map(Number); return Math.round(new Date(y, m - 1, d + add).getTime() / 1000); };
+const freshSched = () => ({ days: [], from: "", to: "", start: isoDay(new Date()), end: "" });
+ui.sched = freshSched();
 // subscription kind as an icon, named for screen readers, followed by its detail
 function subMeta(kind, label, detail) {
   const ic = icon(kind); ic.setAttribute("role", "img"); ic.setAttribute("aria-label", label); ic.removeAttribute("aria-hidden");
@@ -688,7 +802,7 @@ function tgMenu(n, subs) {
   const rows = [
     ...subs.st.map((t) => row(t.talkgroup, "static", "static")),
     ...subs.dy.map((d) => row(d.talkgroup, "dynamic", "dynamic", dynLeft(d), "q")),
-    ...subs.ti.map((t) => row(t.talkgroup, "timed", "timed", schedule(t), "q")),
+    ...subs.ti.map((g) => row(g.talkgroup, "timed", "scheduled", g.text + (g.note ? " · " + g.note : ""), "q" + (g.ended ? " ended" : ""))),
     n === 1 && S.bm.autoStatic ? row(S.bm.autoStatic, "static", "auto-static", "auto", "q") : null,
   ].filter(Boolean);
   const count = subs.st.length + subs.dy.length + subs.ti.length;
@@ -700,7 +814,7 @@ function tgMenu(n, subs) {
       h("h3", { class: "lg" }, "Talkgroups · TS" + n),
       rows.length ? h("ul", {}, rows) : h("p", { class: "none" }, "No talkgroups. Key up any TG to link it dynamically."),
       S.can_manage ? h("button", { class: "key sm edit-btn", id: "edit" + n, disabled: !!ui.busy,
-        onclick: () => { ui.menu[n] = false; ui.editing[n] = true; render(true); focusId("ed" + n); } }, icon("edit"), "Edit talkgroups") : null) : null,
+        onclick: () => openDlg(n) }, icon("edit"), "Edit talkgroups") : null) : null,
   ];
 }
 function closeMenus(except) {
@@ -718,37 +832,108 @@ document.addEventListener("keydown", (e) => {
   for (const n of [0, 1, 2, 3, 4]) if (ui.menu[n]) { ui.menu[n] = false; if (n === 3) syncInfo(); render(true); focusId(["pbtn", "more1", "more2", "ibtn", "tbtn"][n]); }
 });
 
-/* On demand: the full list with spelled-out actions. */
-function tgEditor(n, subs) {
-  const busy = !!ui.busy;
-  const done = () => { ui.editing[n] = false; ui.draft[n] = ""; render(true); focusId("more" + n); };
-  const rows = [
-    ...subs.st.map((t) => h("div", { class: "er" + (ui.busy === "remove" + n + "/" + t.talkgroup ? " busy" : "") },
-      h("span", { class: "n" }, t.talkgroup), h("span", { class: "nm" }, tgName(t.talkgroup)),
-      h("button", { class: "rm", id: "rm" + n + "-" + t.talkgroup, disabled: busy, "aria-label": "Remove TG " + t.talkgroup + " from TS" + n,
-        onclick: () => removeTG(n, Number(t.talkgroup)) }, "Remove"))),
-    ...subs.dy.map((d) => h("div", { class: "er ro" }, h("span", { class: "n" }, d.talkgroup), h("span", { class: "nm" }, tgName(d.talkgroup)),
-      subMeta("dynamic", "dynamic", dynLeft(d)))),
-    ...subs.ti.map((t) => h("div", { class: "er ro", title: "Timed subscriptions are set in SelfCare" }, h("span", { class: "n" }, t.talkgroup), h("span", { class: "nm" }, tgName(t.talkgroup)),
-      subMeta("timed", "timed", schedule(t)))),
-  ];
+/* Edit talkgroups: a modal per slot listing static, scheduled and dynamic TGs with spelled-out actions,
+   and a form that adds a static TG or a scheduled one. Its fields live in ui so a re-render keeps them. */
+function openDlg(n) {
+  ui.menu[n] = false; ui.dlg = n; ui.msg[n] = null;
+  render(true);
+  $("tgdlg").showModal(); focusId("add" + n);
+}
+function renderDlg(force) {
+  const n = ui.dlg;
+  if (n && force) fill($("tgdlg"), tgDialog(n, subsFor(n)));  // polls leave it alone, so typing isn't interrupted
+}
+function tgDialog(n, subs) {
+  const busy = !!ui.busy, sc = ui.sched, editing = ui.editT, timed = editing || ui.addKind === "timed", msg = ui.msg[n];
+  const rm = (label, id, onclick) => h("button", { class: "rm", type: "button", id, disabled: busy, "aria-label": label, onclick }, "Remove");
+  const name = (tg, when, ended) => h("span", { class: "nm" }, h("span", { class: "tn" }, tgName(tg) || " "),
+    when ? h("span", { class: "when" + (ended ? " ended" : "") }, when) : null);
+  const sect = (title, rows, empty, extra) => h("section", { class: "dsec" },
+    h("div", { class: "dsh" }, h("h4", { class: "lg dim" }, title), extra || null),
+    rows.length ? rows : h("p", { class: "none" }, empty));
+  const statics = subs.st.map((t) => h("div", { class: "er" + (ui.busy === "remove" + n + "/" + t.talkgroup ? " busy" : "") },
+    h("span", { class: "n" }, t.talkgroup), name(t.talkgroup),
+    rm("Remove TG " + t.talkgroup + " from TS" + n, "rm" + n + "-" + t.talkgroup, () => removeTG(n, Number(t.talkgroup)))));
+  const scheds = subs.ti.map((g, i) => h("div", { class: "er" + (/^(remove|edit)Timed/.test(ui.busy) && ui.busy.endsWith(n + "/" + g.talkgroup) ? " busy" : "")
+      + (ui.editT && ui.editT.key === g.ids.join() ? " editing" : ""), title: "BrandMeister keeps this as " + g.utc },
+    h("span", { class: "n" }, g.talkgroup), name(g.talkgroup, g.text + (g.note ? " · " + g.note : ""), g.ended),
+    h("span", { class: "acts" },
+      h("button", { class: "rm ed", type: "button", id: "edt" + n + "-" + i, disabled: busy || !g.form, onclick: () => editSched(n, g, "edt" + n + "-" + i),
+        "aria-label": "Edit the TG " + g.talkgroup + " schedule, " + g.text, title: g.form ? null : "Its days have different times: remove it and add it again" }, "Edit"),
+      rm("Remove the TG " + g.talkgroup + " schedule, " + g.text + ", from TS" + n, "rmt" + n + "-" + i, () => removeTimed(n, g)))));
+  const dynamics = subs.dy.map((d) => h("div", { class: "er ro" }, h("span", { class: "n" }, d.talkgroup), name(d.talkgroup, dynLeft(d))));
+
   const hint = h("span", { class: "hint", id: "hint" + n }, tgName(ui.draft[n].trim()));
-  const input = h("input", { id: "add" + n, type: "text", inputmode: "numeric", pattern: "[0-9]*", enterkeyhint: "done", placeholder: "TG number",
-    "aria-label": "Static talkgroup to add on TS" + n, autocomplete: "off", disabled: busy,
+  const input = h("input", { id: "add" + n, type: "text", inputmode: "numeric", pattern: "[0-9]*", enterkeyhint: timed ? "next" : "done", placeholder: "TG number",
+    "aria-label": (timed ? "Scheduled" : "Static") + " talkgroup to add on TS" + n, autocomplete: "off", disabled: busy,
     oninput: (e) => { ui.draft[n] = e.target.value; hint.textContent = tgName(e.target.value.trim()); } });
   input.value = ui.draft[n];
-  const form = h("form", { class: "addform", novalidate: true, onsubmit: (e) => {
+  const setKind = (k) => { ui.addKind = k; renderDlg(true); focusId("kind-" + k); };
+  const kinds = h("div", { class: "seg", role: "radiogroup", "aria-label": "Add as" },
+    ...[["static", "Static"], ["timed", "Scheduled"]].map(([k, l]) => h("button", { type: "button", role: "radio", id: "kind-" + k,
+      "aria-checked": String(ui.addKind === k), tabindex: ui.addKind === k ? "0" : "-1", disabled: busy, onclick: () => setKind(k),
+      onkeydown: (e) => { if (/^Arrow/.test(e.key)) { e.preventDefault(); setKind(k === "static" ? "timed" : "static"); } } }, l)));
+
+  let when = null;
+  if (timed) {
+    const utc = h("p", { class: "phint", id: "utc" + n });
+    const showUtc = () => {
+      const from = secsOf(sc.from), to = secsOf(sc.to);
+      utc.textContent = sc.days.length && from != null && to != null && from !== to
+        ? "BrandMeister keeps this in UTC: " + windowsText(mergeIv(schedParts(sc.days, from, to).map(partIv)), true) + ". It moves an hour when the clocks change."
+        : "Your local time. BrandMeister keeps schedules in UTC, so they move an hour when the clocks change.";
+    };
+    showUtc();
+    const field = (label, attrs) => h("label", { class: "fld" }, h("span", { class: "lg dim" }, label),
+      h("input", { ...attrs, disabled: busy, oninput: (e) => { sc[attrs.key] = e.target.value; showUtc(); }, key: null }));
+    when = h("div", { class: "sched" },
+      h("fieldset", { class: "days" }, h("legend", { class: "lg dim" }, "Days"),
+        DAY_SHORT.map((d, i) => h("button", { type: "button", class: "day", id: "day" + n + "-" + i, "aria-pressed": String(sc.days.includes(i)),
+          "aria-label": DAYS[i][0].toUpperCase() + DAYS[i].slice(1), title: d, disabled: busy,
+          onclick: (e) => {
+            sc.days = sc.days.includes(i) ? sc.days.filter((x) => x !== i) : [...sc.days, i].sort();
+            e.currentTarget.setAttribute("aria-pressed", String(sc.days.includes(i))); showUtc();
+          } }, d.slice(0, 2)))),
+      h("div", { class: "frow" },
+        field("From", { type: "time", id: "from" + n, value: sc.from, key: "from" }),
+        field("To", { type: "time", id: "to" + n, value: sc.to, key: "to" }),
+        field("First day", { type: "date", id: "sd" + n, value: sc.start, key: "start" }),
+        field("Last day (optional)", { type: "date", id: "ed" + n, value: sc.end, min: sc.start, key: "end" })),
+      utc);
+  }
+  const form = h("form", { class: "dadd", novalidate: true, onsubmit: (e) => {
       e.preventDefault();
       const tg = Number(input.value.trim());
-      if (Number.isInteger(tg) && tg > 0) addTG(n, tg); else { hint.textContent = "Enter a talkgroup number"; input.focus(); }
-    } }, input, h("button", { class: "key", type: "submit", disabled: busy }, icon("plus"), "Add"), hint);
-  return h("div", { class: "editor", id: "ed" + n, tabindex: "-1", onkeydown: (e) => { if (e.key === "Escape") done(); } },
-    h("h3", { class: "lg" }, "Talkgroups · TS" + n),
-    rows.length ? rows : h("p", { class: "none" }, "No talkgroups on this slot."),
-    h("div", { class: "foot" }, form,
-      subs.dy.length ? h("button", { class: "key sm", id: "drop" + n, disabled: busy, title: "Remove all dynamic talkgroups on TS" + n,
-        onclick: () => act({ action: "dropDynamicGroups", slot: n }, n, "Dropped dynamic talkgroups on TS" + n) }, icon("drop"), "Drop dynamic") : null,
-      h("button", { class: "key sm done", type: "button", onclick: done }, "Done")));
+      if (!Number.isInteger(tg) || tg <= 0) { hint.textContent = "Enter a talkgroup number"; input.focus(); return; }
+      if (!timed) return addTG(n, tg);
+      const from = secsOf(sc.from), to = secsOf(sc.to);
+      const bad = tg <= 90 ? ["Scheduled talkgroups must be above 90", "add" + n]
+        : !sc.days.length ? ["Pick at least one day", "day" + n + "-0"]
+        : from == null ? ["Set a start time", "from" + n] : to == null ? ["Set an end time", "to" + n]
+        : from === to ? ["The end time must differ from the start", "to" + n]
+        : !sc.start ? ["Set the first day", "sd" + n]
+        : sc.end && sc.end < sc.start ? ["The last day can't be before the first", "ed" + n] : null;
+      if (bad) { say(n, bad[0], true); renderDlg(true); focusId(bad[1]); return; }
+      (editing ? saveTimed : addTimed)(n, tg, from, to);
+    } },
+    editing ? h("div", { class: "dsh" }, h("h4", { class: "lg dim" }, "Edit schedule · TG " + editing.tg),
+        h("button", { class: "key sm", type: "button", id: "edcancel" + n, disabled: busy, onclick: () => { const back = editing.from; endEdit(); renderDlg(true); focusId(back); } }, "Cancel"))
+      : h("div", { class: "dsh" }, h("h4", { class: "lg dim" }, "Add"), kinds),
+    h("div", { class: "addform" }, input, hint), when,
+    h("div", { class: "dfoot" },
+      h("div", { class: "slotmsg" + (msg && msg.err ? " err" : ""), id: "dmsg", "aria-live": "polite" },
+        msg ? [msg.text, msg.undo ? h("button", { type: "button", id: "dundo", onclick: msg.undo }, "Undo") : null] : []),
+      h("button", { class: "key", type: "submit", id: "addbtn" + n, disabled: busy }, editing ? null : icon("plus"), editing ? "Save schedule" : timed ? "Add schedule" : "Add static")));
+
+  return h("div", { class: "dlg-in" },
+    h("div", { class: "dhead" }, h("h3", { class: "lg", id: "tgdlgt" }, "Talkgroups · TS" + n),
+      h("button", { class: "key sm dx", type: "button", "aria-label": "Close", onclick: () => $("tgdlg").close() }, icon("x"))),
+    h("div", { class: "dbody" },
+      sect("Static", statics, "No static talkgroups."),
+      sect("Scheduled", scheds, "No scheduled talkgroups."),
+      subs.dy.length ? sect("Dynamic", dynamics, "", h("button", { class: "key sm", type: "button", id: "drop" + n, disabled: busy, title: "Remove all dynamic talkgroups on TS" + n,
+        onclick: () => act({ action: "dropDynamicGroups", slot: n }, n, "Dropped dynamic talkgroups on TS" + n) }, icon("drop"), "Drop dynamic")) : null,
+      form));
 }
 function focusId(id) { const e = $(id); if (e) e.focus(); }
 
@@ -771,7 +956,6 @@ function vfoSkeleton(n) {
     h("div", { class: "vfo-head" }, h("span", { class: "ab" }, n === 1 ? "A" : "B"), h("h2", { class: "lg" }, "Timeslot " + n),
       h("span", { id: "state" + n }), h("span", { class: "stopbox", id: "stopbox" + n })),
     h("div", { id: "lcd" + n }),
-    h("div", { class: "mem", id: "mem" + n }),
     h("div", { class: "vfo-foot" },
       h("div", { class: "slotmsg", id: "msg" + n, "aria-live": "polite" }),
       h("div", { class: "more", id: "menu" + n, "data-slot": n })),
@@ -792,8 +976,8 @@ function renderVfo(n, force) {
   fill($("lcd" + n), s.active ? lcdLive(s) : lcdIdle(n, subs));
   fitCall($("lcd" + n).querySelector(".call"));
   if (force || !ui.hold[n]) fill($("stopbox" + n), stopKey(n));
-  // the editor and the open menu freeze between forced renders so typing and reading aren't interrupted
-  if (force || !ui.editing[n]) fill($("mem" + n), ui.editing[n] ? tgEditor(n, subs) : null);
+  // the editor dialog and the open menu freeze between forced renders so typing and reading aren't interrupted
+  if (ui.dlg === n) renderDlg(force);
   if (force || (!ui.menu[n] && !ui.hold[n])) fill($("menu" + n), tgMenu(n, subs));
   const msg = ui.msg[n], m = $("msg" + n);
   m.className = "slotmsg" + (msg && msg.err ? " err" : "");
@@ -1518,9 +1702,46 @@ async function addTG(n, tg) {
   const ok = await act({ action: "add", slot: n, talkgroup: tg }, n, "Added TG " + tg + (tgName(tg) ? " " + tgName(tg) : "") + " to TS" + n);
   if (ok) { ui.draft[n] = ""; render(true); focusId("add" + n); }
 }
-function removeTG(n, tg) {
-  act({ action: "remove", slot: n, talkgroup: tg }, n, "Removed TG " + tg + " from TS" + n,
+// The last day counts in full; with none, run ten years like BrandMeister's own default.
+// An edited schedule keeps its exact dates while those fields are left as they were.
+function schedDates(sc) {
+  const k = sc.keep || {}, startDate = sc.start === k.start ? k.from : dayStart(sc.start);
+  const ten = () => { const d = new Date(startDate * 1000); d.setFullYear(d.getFullYear() + 10); return Math.round(d.getTime() / 1000); };
+  return { startDate, endDate: sc.end === k.end && k.until ? k.until : sc.end ? dayStart(sc.end, 1) : ten() };
+}
+async function addTimed(n, tg, from, to) {
+  const parts = schedParts(ui.sched.days, from, to), text = windowsText(mergeIv(parts.map(partIv)), false);
+  const ok = await act({ action: "addTimed", slot: n, talkgroup: tg, parts, ...schedDates(ui.sched) }, n,
+    "Scheduled TG " + tg + (tgName(tg) ? " " + tgName(tg) : "") + " on TS" + n + ": " + text);
+  if (ok) { ui.draft[n] = ""; ui.sched = freshSched(); render(true); focusId("add" + n); }
+}
+// load a schedule into the form; saving adds the changed one, then removes the old records
+function editSched(n, g, from) {
+  const f = g.form, long = g.until - g.from > 5 * 365 * 86400;
+  const start = isoDay(new Date(g.from * 1000)), end = long ? "" : isoDay(new Date((g.until - 86400) * 1000));
+  ui.draft[n] = g.talkgroup; ui.msg[n] = null;
+  ui.sched = { days: f.days, from: f.from, to: f.to, start, end, keep: { start, from: g.from, end, until: g.until } };
+  ui.editT = { key: g.ids.join(), ids: g.ids, tg: g.talkgroup, from };
+  renderDlg(true); focusId("from" + n);
+}
+function endEdit() { ui.editT = null; ui.draft[ui.dlg] = ""; ui.sched = freshSched(); ui.addKind = "static"; }
+async function saveTimed(n, tg, from, to) {
+  const parts = schedParts(ui.sched.days, from, to), text = windowsText(mergeIv(parts.map(partIv)), false);
+  const ok = await act({ action: "editTimed", recordids: ui.editT.ids, slot: n, talkgroup: tg, parts, ...schedDates(ui.sched) }, n,
+    "Updated the TG " + tg + " schedule on TS" + n + ": " + text);
+  if (ok) { endEdit(); render(true); focusId("add" + n); }
+}
+async function removeTimed(n, g) {
+  const tg = Number(g.talkgroup), parts = g.recs.flatMap(recParts);
+  if (ui.editT && ui.editT.key === g.ids.join()) endEdit();
+  await act({ action: "removeTimed", recordids: g.ids, talkgroup: tg }, n, "Removed the TG " + tg + " schedule (" + g.text + ") from TS" + n,
+    g.ended ? null : () => { ui.msg[n] = null; act({ action: "addTimed", slot: n, talkgroup: tg, parts, startDate: g.from, endDate: g.until }, n, "Restored the TG " + tg + " schedule on TS" + n); });
+  focusId(ui.dlg ? "dundo" : "more" + n);
+}
+async function removeTG(n, tg) {
+  await act({ action: "remove", slot: n, talkgroup: tg }, n, "Removed TG " + tg + " from TS" + n,
     () => { ui.msg[n] = null; act({ action: "add", slot: n, talkgroup: tg }, n, "Restored TG " + tg + " on TS" + n); });
+  focusId(ui.dlg ? "dundo" : "more" + n);
 }
 
 setInterval(() => {
@@ -1563,6 +1784,17 @@ document.addEventListener("pointerdown", (e) => { if (!e.target.closest || !e.ta
 let berRaf = 0;
 addEventListener("resize", () => { cancelAnimationFrame(berRaf); berRaf = requestAnimationFrame(() => { if (S) renderBer(); }); });
 ui.menu[3] = false; ui.menu[4] = false; ui.seenEv = 0;
+$("tgdlg").addEventListener("close", () => {
+  const n = ui.dlg;
+  endEdit(); ui.dlg = 0;
+  if (ui.msg[n] && ui.msg[n].err) ui.msg[n] = null;  // a form complaint means nothing once the form is gone
+  fill($("tgdlg")); render(true); focusId("more" + n);
+});
+// a click on the backdrop closes it; the content fills the dialog, so only the backdrop is the dialog itself.
+// Both press and release must land there, so a text selection dragged out of a field doesn't close it.
+let dlgDown = false;
+$("tgdlg").addEventListener("pointerdown", (e) => { dlgDown = e.target === $("tgdlg"); });
+$("tgdlg").addEventListener("click", (e) => { if (dlgDown && e.target === $("tgdlg")) $("tgdlg").close(); dlgDown = false; });
 $("ibtn").prepend(icon("info"));
 $("ibtn").addEventListener("click", () => { ui.menu[3] = !ui.menu[3]; syncInfo(); if (S) renderEvents(); });
 $("evclear").addEventListener("click", async () => {
