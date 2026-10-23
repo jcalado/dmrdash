@@ -143,6 +143,12 @@ h2.lg { margin: 0; }
 .info-pop h3 + dl, .info-pop h3 + .ev { margin-top: 4px; }
 .info-pop dl, .info-pop .ev { padding: 0 4px 10px; }
 .info-pop .ev { margin-bottom: -6px; }
+/* which of Last heard, RF BER and Live log this browser shows */
+.info-pop .secs { list-style: none; margin: 2px 0 10px; padding: 0 4px; }
+.secs li + li { border-top: 1px solid var(--row); }
+.secs .switch { width: 100%; justify-content: space-between; min-height: 34px; padding: 0; font: 13px/1.2 var(--sans); letter-spacing: 0; text-transform: none; color: var(--legend); }
+.secs .switch[aria-checked="true"] { color: var(--white); }
+.allhidden { margin: 0; padding: 14px 4px; color: var(--legend-dim); font-size: 13px; }
 .evhead { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
 .evhead .link { border: 0; background: none; padding: 2px 0; font: 600 12.5px/1 var(--sans); color: var(--legend); cursor: pointer;
   text-decoration: underline; text-decoration-color: var(--rule-2); text-underline-offset: 3px; }
@@ -513,6 +519,7 @@ dt { color: var(--legend-dim); } dd { margin: 0; overflow-wrap: anywhere; } dd.n
       <button class="key sm more-btn" id="ibtn" type="button" aria-expanded="false" aria-controls="pop3" aria-label="Station details and events" title="Station details and events"><span class="newdot" id="evdot" hidden></span></button>
       <div class="pop down info-pop" id="pop3" hidden>
         <h3 class="lg">Station</h3><dl id="station"></dl>
+        <h3 class="lg">Sections</h3><ul class="secs" id="secs"></ul>
         <div class="evhead"><h3 class="lg">Events</h3><button class="link" id="evclear" type="button">Clear</button></div><ul class="ev" id="events"></ul>
         <div class="power" id="power"></div>
       </div>
@@ -525,6 +532,7 @@ dt { color: var(--legend-dim); } dd { margin: 0; overflow-wrap: anywhere; } dd.n
   <main class="vfos"><div id="vfo1"></div><div id="vfo2"></div></main>
 
   <section class="deck">
+    <p class="allhidden" id="allhidden" hidden>All sections are hidden. Show them again from the (i) menu.</p>
     <div class="box" data-sec="heard">
       <div class="logbar"><h2 class="lg">Last heard</h2><div class="chips" id="chips"></div>
         <div class="kfilter"><div class="seg" id="rowsel" role="radiogroup" aria-label="Rows shown"><span class="lg dim" aria-hidden="true">Rows</span><button type="button" role="radio" data-rows="5">5</button><button type="button" role="radio" data-rows="10">10</button><button type="button" role="radio" data-rows="50">50</button></div>
@@ -1420,7 +1428,7 @@ const LOGMAX = 400;
 const L = { last: 0, open: true, follow: true, busy: false };
 const msTime = (ts) => hhmmss(ts) + "." + String(Math.floor((ts % 1) * 1000)).padStart(3, "0");
 async function pollLog() {
-  if (!L.open || L.busy) return;
+  if (!L.open || L.busy || L.hidden) return;
   L.busy = true;
   try {
     const r = await fetch("/api/log?after=" + L.last, { cache: "no-store" });
@@ -1902,15 +1910,16 @@ for (const ev of ["pointerup", "pointercancel", "pointerleave"]) $("log").addEve
 // never leaves the DOM (its neighbours move round it), so pointer capture and keyboard focus survive.
 const deck = document.querySelector(".deck");
 const SECTIONS = { heard: "Last heard", ber: "RF BER", log: "Live log" };
+const boxes = () => [...deck.querySelectorAll(":scope > .box")];
 function shift(el, before) {
   const con = $("console"), top = con.scrollTop;
   deck.insertBefore(el, before);
   con.scrollTop = L.follow ? con.scrollHeight : top;  // a moved node can lose its scroll position
 }
 function moveBox(box, to) {
-  if ([...deck.children].indexOf(box) === to) return;
+  if (boxes().indexOf(box) === to) return;
   const move = () => {
-    let i = [...deck.children].indexOf(box);  // again: a view transition runs this a frame later
+    let i = boxes().indexOf(box);  // again: a view transition runs this a frame later
     for (; i > to; i--) shift(box.previousElementSibling, box.nextElementSibling);
     for (; i < to; i++) shift(box.nextElementSibling, box);
   };
@@ -1922,12 +1931,12 @@ function moveBox(box, to) {
   t.finished.finally(() => { if (lastVt === t) deck.classList.remove("vt"); });
   lastVt = t;
 }
-function saveOrder() { try { localStorage.setItem("dmrdash.order", [...deck.children].map((b) => b.dataset.sec).join(",")); } catch (e) {} }
+function saveOrder() { try { localStorage.setItem("dmrdash.order", boxes().map((b) => b.dataset.sec).join(",")); } catch (e) {} }
 try { for (const k of (localStorage.getItem("dmrdash.order") || "").split(",")) { const b = deck.querySelector(`[data-sec="${k}"]`); if (b) deck.append(b); } } catch (e) {}
 let drag = null, lastVt = null;
 function dragTo(y) {
   // the slot is the count of other boxes whose middle the pointer is below
-  const others = [...deck.children].filter((b) => b !== drag.box);
+  const others = boxes().filter((b) => b !== drag.box);  // a hidden one has a zero rect, so it always counts as above
   moveBox(drag.box, others.filter((b) => { const r = b.getBoundingClientRect(); return y > r.top + r.height / 2; }).length);
 }
 function dragScroll() {
@@ -1941,7 +1950,7 @@ function dragEnd() {
   drag.box.classList.remove("dragging"); deck.classList.remove("sorting");
   drag = null; saveOrder();
 }
-for (const box of deck.children) {
+for (const box of boxes()) {
   const name = SECTIONS[box.dataset.sec];
   const grip = h("button", { class: "grip", type: "button", "aria-label": `Move ${name}`, title: "Drag to move this section, or use the arrow keys",
     "aria-roledescription": "sortable section" }, icon("grip"));
@@ -1961,13 +1970,39 @@ for (const box of deck.children) {
     const d = { ArrowUp: -1, ArrowDown: 1 }[e.key];
     if (!d) return;
     e.preventDefault();
-    const n = deck.children.length, to = Math.max(0, Math.min(n - 1, [...deck.children].indexOf(box) + d));
-    moveBox(box, to); saveOrder();
+    // step past the next shown section; hidden ones keep their place
+    const shown = boxes().filter((b) => !b.hidden), at = shown.indexOf(box), next = shown[at + d];
+    if (next) { moveBox(box, boxes().indexOf(next)); saveOrder(); }
     grip.scrollIntoView({ block: "nearest" });
-    $("ordermsg").textContent = `${name} moved to position ${to + 1} of ${n}`;
+    $("ordermsg").textContent = `${name} moved to position ${shown.indexOf(box) + (next ? d : 0) + 1} of ${shown.length}`;
   });
   box.querySelector(".logbar").prepend(grip);
 }
+
+/* ---------------- shown sections ---------------- */
+// Each browser can hide any of the three sections from the (i) menu; hidden ones keep their place in the order.
+let hiddenSecs = new Set();
+try { hiddenSecs = new Set((localStorage.getItem("dmrdash.hidden") || "").split(",").filter((k) => SECTIONS[k])); } catch (e) {}
+function syncSections() {
+  for (const box of boxes()) box.hidden = hiddenSecs.has(box.dataset.sec);
+  $("allhidden").hidden = hiddenSecs.size < boxes().length;
+  fill($("secs"), Object.entries(SECTIONS).map(([k, name]) => h("li", {},
+    h("button", { class: "switch", type: "button", role: "switch", "aria-checked": String(!hiddenSecs.has(k)), onclick: () => setShown(k, hiddenSecs.has(k)) },
+      name, h("span", { class: "track", "aria-hidden": "true" }, h("i"))))));
+}
+function setShown(k, show) {
+  show ? hiddenSecs.delete(k) : hiddenSecs.add(k);
+  try { localStorage.setItem("dmrdash.hidden", [...hiddenSecs].join(",")); } catch (e) {}
+  const was = document.activeElement && document.activeElement.closest("#secs") ? [...$("secs").children].indexOf(document.activeElement.closest("li")) : -1;
+  syncSections();
+  if (was >= 0) $("secs").children[was].firstChild.focus();  // the switches are rebuilt; keep focus on the one pressed
+  L.hidden = hiddenSecs.has("log");
+  if (k === "log" && show) pollLog();
+  if (k === "ber" && show && S) renderBer();  // it was drawn at zero width while hidden
+}
+L.hidden = hiddenSecs.has("log");
+syncSections();
+
 poll(); setInterval(poll, 2000);
 </script>
 </body>

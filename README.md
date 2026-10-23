@@ -32,7 +32,8 @@ talkgroups from your phone without logging in to SelfCare.
 - **Live log:** an MMDVM-style tail of the hotspot log, kept in RAM.
 - **Terminal view:** `dmrdash-tui` shows both timeslots, talkgroups, last heard and the live log in a terminal,
   for when you're on the Pi over SSH. It is read-only.
-- **Your layout:** drag Last heard, RF BER and Live log into the order you like. Each browser remembers its own order.
+- **Your layout:** drag Last heard, RF BER and Live log into the order you like, and hide any of them from the (i) menu.
+  Each browser remembers its own layout.
 - **Light on the Pi:**
   - Python standard library only, about 26 MB of memory, and no build step.
   - Nothing is written to the SD card in normal use. Only saving a preset or changing the RX offset writes a small file.
