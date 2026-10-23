@@ -216,7 +216,7 @@ A graphite neutral panel, a warm khaki LCD ground, and three rig LED colours hel
 
 ## Layout
 
-The status strip spans the full window width (24px side padding, 16px under 820px) with its hairline running edge to edge; everything below it sits in a single centred column (max 1240px, 16px side padding). Top to bottom: the status strip (station callsign and hotspot ID, LED legends, local and UTC clock, the Presets key and the (i) key) divided by a hairline; an optional alarm banner; a page message line when a preset reports; the VFO pair in a two-column equal grid (16px gap); then the Last heard log at full width.
+The status strip spans the full window width (24px side padding, 16px under 820px) with its hairline running edge to edge; everything below it sits in a single centred column (max 1240px, 16px side padding). Top to bottom: the status strip (station callsign and hotspot ID, the hotspot lamp, the clock, the Presets key and the (i) key) divided by a hairline; an optional alarm banner; a page message line when a preset reports; the VFO pair in a two-column equal grid (16px gap); then the Last heard log at full width.
 
 At 820px and below everything collapses to one column: the VFOs stack A over B, the readout shrinks, and the log drops its name, TG-name and Loss columns to keep callsign, TG and figures readable.
 
@@ -252,6 +252,9 @@ Hard keys on the panel, tactile by border, never by shadow.
 
 ### Status strip / LEDs
 - Circular LED plus engraved legend. Green for healthy, amber for warning, red for failure (the legend itself turns fail-text on failure), dark for off.
+- **Hotspot lamp:** DMRHost, Modem and the BM link share one LED in the strip, which shows the worst of the three. When all are healthy its legend reads HOTSPOT. Otherwise it names the worst one and its state in plain legend-tone text ("BM 2682 connecting", "MODEM error +1", the +n counting the others not healthy). While the Pi can't be reached it is amber and reads "HOTSPOT no update". It is a transparent 30px key with a 12px chevron that gains the key graphite cap and a key-rule border on hover and while open.
+- **Clock:** one right-aligned readout of two lines: local time with seconds on top (data face 600 14px, white), and UTC under it as "08:32 UTC" (data face 11.5px, dim legend). Tabular figures, so it doesn't jitter as it ticks.
+- **Hotspot popover:** opens down from the lamp, left-aligned to it (same shell as Presets, up to 340px wide). Under a HOTSPOT legend it has one row each for DMRHost, Modem and BM: the LED, the name, the state in words (coloured amber or fail text when not healthy), and a dim mono line under them (the DMRHost version, the modem name, or since when the link has been in its state, each with how long). It stays live while open, and closes on Escape (focus returns to the lamp), on an outside tap, or when another menu opens.
 
 ### Alarm banner
 - Full-width under the strip: alarm ground, 1px TX-red border, 6px corners, warning line icon, bold headline then plain explanation.
@@ -299,7 +302,7 @@ Hard keys on the panel, tactile by border, never by shadow.
 - Swaps glide: each move runs in a view transition scoped to the deck (`deck.startViewTransition`). Browsers without that use `document.startViewTransition` with the root left uncaptured, and the move is instant where neither exists or reduced motion is on. Each box is named only while sorting (`.deck.vt`), so it isn't captured or made a stacking context the rest of the time. The move takes 0.22 s on a fast-out ease, with no cross-fade, since it's the same box before and after. `::view-transition { pointer-events: none }` keeps the drag reaching the page mid-glide.
 
 ### RF BER trend
-- A collapsible box between Last heard and Live log: disclosure title "RF BER" (remembered per browser), the dim legend "Your radio into the hotspot", and at the right a mono summary: RX offset, last BER, and the median of the last 10 overs at the current offset (amber or fail text past the cut-offs).
+- A collapsible box between Last heard and Live log: disclosure title "RF BER" (remembered per browser), and at the right a mono summary: RX offset, last BER, and the median of the last 10 overs at the current offset (amber or fail text past the cut-offs).
 - An inline SVG plot, one dot per RF over, evenly spaced (10–40px) with the newest at the right edge, because overs come in bursts hours apart. Y runs 0 to at least 6%, with the log's cut-offs as dashed lines: 2% BUSY amber and 5% fail text. Dots are legend tone, amber at 2% and above, fail text at 5% and above; a dropped over ("RF voice transmission lost") is a hollow ring, so the meaning never rests on colour alone. A 2px dim-legend line gives the rolling median of five, restarted at each RX offset change.
 - RX offset changes (parsed from DMRHost's "RX Offset" start-up line) draw a dotted vertical rule with the new value in mono above the plot, on two alternating rows; labels that don't fit are dropped. Time labels sit under the first over and after gaps over 30 minutes, with the date when the day changes.
 - Hover (or tap) a column for a tooltip: BER and dropped, time, TS and duration, TG or private call, RX offset. A key row under the plot explains dot, ring, median and offset marks.
