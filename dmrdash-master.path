@@ -1,0 +1,9 @@
+[Unit]
+Description=Watch for master changes from the DMRHost dashboard
+
+[Path]
+PathChanged=/var/lib/dmrdash/master.request
+Unit=dmrdash-master.service
+
+[Install]
+WantedBy=paths.target

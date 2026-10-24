@@ -11,9 +11,9 @@ trap 'rm -rf "$PKG"' EXIT
 
 install -d "$PKG/DEBIAN" "$PKG/opt/dmrdash" "$PKG/usr/bin" "$PKG/usr/lib/systemd/system" "$PKG/usr/share/doc/dmrdash"
 install -m 0644 "$ROOT/dmrdash.py" "$ROOT/index.html" "$PKG/opt/dmrdash/"
-install -m 0755 "$ROOT/rxoffset.py" "$ROOT/power.py" "$ROOT/tui.py" "$PKG/opt/dmrdash/"
+install -m 0755 "$ROOT/rxoffset.py" "$ROOT/master.py" "$ROOT/power.py" "$ROOT/tui.py" "$PKG/opt/dmrdash/"
 ln -s /opt/dmrdash/tui.py "$PKG/usr/bin/dmrdash-tui"
-install -m 0644 "$ROOT/dmrdash.service" "$ROOT/dmrdash-rxoffset.path" "$ROOT/dmrdash-rxoffset.service" "$ROOT/dmrdash-power.path" "$ROOT/dmrdash-power.service" "$PKG/usr/lib/systemd/system/"
+install -m 0644 "$ROOT/dmrdash.service" "$ROOT/dmrdash-rxoffset.path" "$ROOT/dmrdash-rxoffset.service" "$ROOT/dmrdash-master.path" "$ROOT/dmrdash-master.service" "$ROOT/dmrdash-power.path" "$ROOT/dmrdash-power.service" "$PKG/usr/lib/systemd/system/"
 install -m 0644 "$ROOT/dmrdash.conf.example" "$ROOT/README.md" "$ROOT/NOTICE" "$ROOT/licenses/Saira-OFL.txt" "$ROOT/licenses/DSEG-OFL.txt" "$PKG/usr/share/doc/dmrdash/"
 install -m 0644 "$ROOT/LICENSE" "$PKG/usr/share/doc/dmrdash/copyright"
 for s in postinst prerm postrm; do install -m 0755 "$ROOT/packaging/$s" "$PKG/DEBIAN/"; done
@@ -30,7 +30,8 @@ Homepage: https://github.com/jcalado/dmrdash
 Description: LAN dashboard for BrandMeister DMRHost hotspots
  Live calls per timeslot from the DMRHost journal, last heard, a RAM-only
  live log, static talkgroup management through the BrandMeister API, and an
- RF BER trend with RX offset tuning, and restart / shut down of the Pi.
+ RF BER trend with RX offset tuning, BrandMeister master switching, and
+ restart / shut down of the Pi.
  A terminal view, dmrdash-tui, shows the same over SSH.
  Python standard library only; nothing is written to the SD card in normal use.
 CTL

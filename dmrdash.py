@@ -27,7 +27,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 CONF_PATH = os.environ.get("DMRDASH_CONF", "/etc/dmrdash.conf")
 HERE = os.path.dirname(os.path.abspath(__file__))
 BM_API = "https://api.brandmeister.network/v2"
-VERSION = "1.0.0"
+VERSION = "1.1.0"
 USER_AGENT = "dmrdash/" + VERSION
 
 DEFAULTS = {
@@ -171,7 +171,7 @@ STATE = {
     "rxoffset": None,
 }
 
-BM = {"device": None, "profile": None, "talkgroups": {}, "updated": None,
+BM = {"device": None, "profile": None, "talkgroups": {}, "masters": [], "updated": None,
       "error": None, "tg_names_updated": 0}
 
 SLOT_RE = re.compile(r"^DMR Slot (\d), (.*)$")
@@ -238,6 +238,8 @@ def handle_line(ts, level, msg):
     elif msg == "DMR, Logged into the master successfully":
         STATE["network"].update(status="connected", since=ts)
         add_event(ts, "M", "Logged into the BrandMeister master")
+        if MASTER["target"]:  # ask BM soon which master it now sees us on, rather than at the next poll
+            threading.Timer(5, bm_refresh).start()
     elif msg.startswith("DMR, Login to the master has failed"):
         STATE["network"].update(status="login failed", since=ts)
     elif msg.startswith("DMR, Connection to the master has timed out") or "Socket has failed" in msg:
@@ -374,14 +376,19 @@ def bm_refresh(names=False):
     try:
         device = bm_request("GET", f"/device/{dev}")
         profile = bm_request("GET", f"/device/{dev}/profile")
-        tgs = None
+        tgs = masters = None
         if names or time.time() - BM["tg_names_updated"] > 86400:
             tgs = bm_request("GET", "/talkgroup")
+            masters = bm_request("GET", "/master/")
         with LOCK:
             BM.update(device=device, profile=profile, updated=time.time(), error=None)
             if tgs:
                 BM["talkgroups"] = tgs
                 BM["tg_names_updated"] = time.time()
+            if isinstance(masters, list) and masters:
+                BM["masters"] = sorted(({"id": int(m["id"]), "country": str(m.get("country") or "")}
+                                        for m in masters if str(m.get("id", "")).isdigit()), key=lambda m: m["id"])
+            master_seen(device.get("lastKnownMaster"))
     except (BMError, ValueError) as e:
         with LOCK:
             BM["error"] = str(e)
@@ -505,6 +512,8 @@ def bm_action(body):
         return preset_apply(body)
     elif action in ("tuneStart", "tuneStop", "tuneKeep", "tuneBack", "tryOffset"):
         return tune_action(action, body)
+    elif action == "master":
+        return request_master(body.get("id"))
     elif action == "power":
         return request_power(body.get("what"))
     else:
@@ -753,6 +762,8 @@ def tune_watch():
 def tune_action(action, body):
     with LOCK:
         t, now = TUNE, time.time()
+        if action in ("tuneStart", "tryOffset") and MASTER["target"]:
+            raise BMError("Wait for the move to the new master to finish")
         if action == "tuneStart":
             tune_start(now)
         elif action == "tuneStop":
@@ -777,6 +788,62 @@ def tune_action(action, body):
     return {"ok": True}
 
 
+# --- BrandMeister master ----------------------------------------------------
+# Same split again: the dashboard writes a master ID to a request file, and the root-run
+# dmrdash-master.path/.service (master.py) sets [DMR Network] Address=<id>.master.brandmeister.network
+# and restarts DMRHost. The move has landed once BrandMeister reports the hotspot on that master.
+
+MASTER_PATH = os.path.join(STATE_DIR, "master.request")
+MASTER_WAIT = 120  # DMRHost should be logged in to the new master, and BM saying so, within this
+
+MASTER = {"target": None, "requested": None}
+
+
+def can_master():
+    return os.path.exists(os.path.join(HERE, "master.py"))
+
+
+def master_seen(master):
+    """Called under LOCK with BrandMeister's lastKnownMaster after each refresh."""
+    if MASTER["target"] and master == MASTER["target"]:
+        add_event(time.time(), "M", f"Moved to BrandMeister master {master}")
+        MASTER.update(target=None, requested=None)
+
+
+def request_master(mid):
+    if not isinstance(mid, int) or isinstance(mid, bool) or not 1000 <= mid <= 9999:
+        raise BMError("A master ID is four digits")
+    if not can_master():
+        raise BMError("Switching masters needs the dmrdash-master helper; rerun install.sh")
+    with LOCK:
+        if BM["masters"] and mid not in {m["id"] for m in BM["masters"]}:
+            raise BMError(f"{mid} isn't a BrandMeister master")
+        if MASTER["target"]:
+            raise BMError(f"Already moving to master {MASTER['target']}")
+        if TUNE["state"] in ("running", "done"):
+            raise BMError("Finish the RX offset tuning run first")
+        if (BM["device"] or {}).get("lastKnownMaster") == mid and STATE["network"]["status"] == "connected":
+            raise BMError(f"The hotspot is already on master {mid}")
+        try:
+            with open(MASTER_PATH, "w") as f:
+                f.write(f"{mid}\n")
+        except OSError as e:
+            raise BMError(f"Can't write the master request on the Pi: {e.strerror or e}")
+        MASTER.update(target=mid, requested=time.time())
+    return {"ok": True}
+
+
+def master_watch():
+    """Report a move that never landed, and stop waiting for it."""
+    while True:
+        time.sleep(5)
+        with LOCK:
+            if MASTER["target"] and time.time() - MASTER["requested"] > MASTER_WAIT:
+                add_event(time.time(), "E", f"The hotspot didn't come up on master {MASTER['target']} within "
+                          f"{MASTER_WAIT // 60} minutes. Check the helper: journalctl -u dmrdash-master")
+                MASTER.update(target=None, requested=None)
+
+
 # --- restart / shut down ----------------------------------------------------
 # Same split as the RX offset: the dashboard only writes "reboot" or "poweroff" to a request file,
 # and the root-run dmrdash-power.path/.service (power.py) checks it and asks systemd.
@@ -796,6 +863,8 @@ def request_power(what):
     with LOCK:
         if TUNE["state"] in ("running", "done"):
             raise BMError("Finish the RX offset tuning run first")
+        if MASTER["target"]:
+            raise BMError("Wait for the move to the new master to finish")
     try:
         with open(POWER_PATH, "w") as f:
             f.write(what + "\n")
@@ -849,6 +918,8 @@ def snapshot():
                 "error": BM["error"],
             },
             "tg_names": names,
+            "masters": BM["masters"],
+            "master": {"can": can_master(), "target": MASTER["target"], "requested": MASTER["requested"]},
             "presets": [dict(p) for p in PRESETS],
         }
 
@@ -941,6 +1012,7 @@ def main():
     threading.Thread(target=follow_journal, daemon=True).start()
     threading.Thread(target=poll_bm, daemon=True).start()
     threading.Thread(target=tune_watch, daemon=True).start()
+    threading.Thread(target=master_watch, daemon=True).start()
     srv = ThreadingHTTPServer((CONF["listen"], int(CONF["port"])), Handler)
     srv.daemon_threads = True
     srv.serve_forever()

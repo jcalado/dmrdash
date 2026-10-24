@@ -29,6 +29,8 @@ talkgroups from your phone without logging in to SelfCare.
 - **RF BER trend:** the BER of each over from your radio, with RX offset changes marked.
 - **RX offset tuning:** when your BER stays high, the dashboard suggests an offset from your recent overs.
   A tuning run steps the offset while you key up, then asks before keeping the best one.
+- **Master switching:** pick another BrandMeister master from the (i) menu. DMRHost restarts and logs in to it,
+  and the dashboard confirms once BrandMeister sees the hotspot there.
 - **Live log:** an MMDVM-style tail of the hotspot log, kept in RAM.
 - **Terminal view:** `dmrdash-tui` shows both timeslots, talkgroups, last heard and the live log in a terminal,
   for when you're on the Pi over SSH. It is read-only.
@@ -36,7 +38,7 @@ talkgroups from your phone without logging in to SelfCare.
   Each browser remembers its own layout.
 - **Light on the Pi:**
   - Python standard library only, about 26 MB of memory, and no build step.
-  - Nothing is written to the SD card in normal use. Only saving a preset or changing the RX offset writes a small file.
+  - Nothing is written to the SD card in normal use. Only saving a preset, changing the RX offset or switching master writes a small file.
 
 <br clear="right">
 
@@ -112,8 +114,8 @@ q quits. `--ascii` draws without box characters.
 | `pin` | `""` | When set, every change (talkgroups, presets, Stop call, RX offset, clearing events) asks for this PIN once per browser tab. |
 | `port` | `8080` | HTTP port. |
 | `listen` | `"0.0.0.0"` | Address to listen on. Use `"127.0.0.1"` behind a reverse proxy. |
-| `unit` | `"dmrhost"` | systemd unit whose journal is followed, and which an RX offset change restarts. |
-| `mmdvm_ini` | `"/etc/MMDVM.ini"` | Hotspot config whose `[Modem] RXOffset=` the tuning helper edits. |
+| `unit` | `"dmrhost"` | systemd unit whose journal is followed, and which an RX offset or master change restarts. |
+| `mmdvm_ini` | `"/etc/MMDVM.ini"` | Hotspot config whose `[Modem] RXOffset=` the tuning helper edits, and whose `[DMR Network] Address=` the master helper edits. |
 | `user_csv` | `"/usr/local/etc/user.csv"` | RadioID user file used for names. DMRHost installs it here. |
 | `lastheard_size` | `50` | Calls kept in Last heard. |
 | `bm_poll_seconds` | `60` | How often BrandMeister is asked for link and subscription status. |
@@ -129,13 +131,19 @@ dmrdash is meant for your **home LAN**. It has no user accounts.
 - **Cross-site requests:** other websites can't use your browser to make changes. Changes need a custom
   header and a JSON body, and unknown `Host` names are refused (a DNS-rebinding guard).
 - **Sandboxing:** the service runs as its own user, sandboxed by systemd. It can read the journal but
-  can't write anywhere except its state folder (presets, and the RX offset and power requests).
+  can't write anywhere except its state folder (presets, and the RX offset, master and power requests).
 - **RX offset changes:** the dashboard can't edit the hotspot config itself. It writes the wanted offset
   to `/var/lib/dmrdash/rxoffset.request`, and the root-run `dmrdash-rxoffset.path` and `.service` units
   pass it to `rxoffset.py`. That script accepts only a whole number within ±3000 Hz, changes only
   `RXOffset=` in the `[Modem]` section, and restarts the hotspot service. Each change cuts any call
   in progress, and like other changes it needs the PIN when one is set. To turn the feature off,
   run `sudo systemctl disable --now dmrdash-rxoffset.path`.
+- **Master changes:** the same split. The dashboard writes a master ID to `/var/lib/dmrdash/master.request`,
+  and the root-run `dmrdash-master.path` and `.service` units pass it to `master.py`. That script accepts only
+  a four-digit ID and always writes BrandMeister's own name for it, `Address=<id>.master.brandmeister.network`,
+  so the hotspot can't be pointed at a server outside BrandMeister. It changes only that line in the
+  `[DMR Network]` section, and restarts the hotspot service. The PIN applies here too. To turn the feature off,
+  run `sudo systemctl disable --now dmrdash-master.path`.
 - **Restart and shut down:** the same split. The (i) popover's Restart and Shut down keys ask for
   confirmation, then the dashboard writes `reboot` or `poweroff` to `/var/lib/dmrdash/power.request`.
   The root-run `dmrdash-power.path` and `.service` units pass it to `power.py`, which accepts only those
@@ -162,6 +170,8 @@ dmrdash is meant for your **home LAN**. It has no user accounts.
   new one in SelfCare.
 - **"DMRHost didn't come back with RX offset …":** check the helper with
   `systemctl status dmrdash-rxoffset.path` and `journalctl -u dmrdash-rxoffset -n 20`.
+- **"The hotspot didn't come up on master …":** check `systemctl status dmrdash-master.path` and
+  `journalctl -u dmrdash-master -n 20`, and that `[DMR Network] Address=` in MMDVM.ini changed.
 - **Restart or Shut down does nothing:** check `systemctl status dmrdash-power.path` and
   `journalctl -u dmrdash-power -n 20`.
 

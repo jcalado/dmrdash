@@ -217,6 +217,49 @@ class ServerTest(unittest.TestCase):
         with open(dmrdash.POWER_PATH) as f:
             self.assertEqual(f.read(), "reboot\n")  # refused requests never reach the file
 
+    def test_master_request(self):
+        pin = {"X-Dmrdash-Pin": "4321"}
+        dmrdash.BM["masters"] = [{"id": 2682, "country": "PT"}, {"id": 2141, "country": "ES"}]
+        s = json.loads(self.req("GET", "/api/state")[1])
+        self.assertEqual((s["masters"][0]["id"], s["master"]["can"], s["master"]["target"]), (2682, True, None))
+        for mid in (2999, "2141", 99999, None, True):  # not a listed master, or not a number
+            self.assertEqual(self.req("POST", "/api/bm", {"action": "master", "id": mid}, pin)[0], 400)
+        self.assertFalse(os.path.exists(dmrdash.MASTER_PATH))
+        status, data = self.req("POST", "/api/bm", {"action": "master", "id": 2141}, pin)
+        self.assertEqual(status, 200, data)
+        with open(dmrdash.MASTER_PATH) as f:
+            self.assertEqual(f.read(), "2141\n")
+        self.assertEqual(self.req("POST", "/api/bm", {"action": "master", "id": 2682}, pin)[0], 400)  # one move at a time
+        self.assertEqual(self.req("POST", "/api/bm", {"action": "power", "what": "reboot"}, pin)[0], 400)
+        with dmrdash.LOCK:
+            dmrdash.master_seen(2682)  # BM still sees the old master
+            self.assertEqual(dmrdash.MASTER["target"], 2141)
+            dmrdash.master_seen(2141)
+        self.assertIsNone(dmrdash.MASTER["target"])
+        self.assertEqual(dmrdash.STATE["events"][0]["text"], "Moved to BrandMeister master 2141")
+
+    def test_master_helper_edits_only_dmr_network_address(self):
+        spec = importlib.util.spec_from_file_location("master", os.path.join(ROOT, "master.py"))
+        ms = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(ms)
+        ini = os.path.join(TMP, "MMDVM-master.ini")
+        with open(ini, "w") as f:
+            f.write("[Info]\nAddress=Lisbon\n[DMR Network]\nEnable=1\nAddress=193.137.237.12\nPort=62031\n[POCSAG Network]\nAddress=x\n")
+        self.assertTrue(ms.set_master(ini, 2141))
+        with open(ini) as f:
+            self.assertEqual(f.read(), "[Info]\nAddress=Lisbon\n[DMR Network]\nEnable=1\n"
+                             "Address=2141.master.brandmeister.network\nPort=62031\n[POCSAG Network]\nAddress=x\n")
+        self.assertFalse(ms.set_master(ini, 2141))
+        ms.REQUEST = os.path.join(TMP, "master.test")
+        for raw, ok in (("2682\n", True), ("0123", False), ("2682 evil.example", False), ("268", False)):
+            with open(ms.REQUEST, "w") as f:
+                f.write(raw)
+            if ok:
+                self.assertEqual(ms.read_request(), 2682)
+            else:
+                with self.assertRaises(SystemExit):
+                    ms.read_request()
+
     def test_power_helper_checks_request(self):
         spec = importlib.util.spec_from_file_location("power", os.path.join(ROOT, "power.py"))
         pw = importlib.util.module_from_spec(spec)

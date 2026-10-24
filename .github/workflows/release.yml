@@ -19,7 +19,7 @@ jobs:
       - name: Build
         run: |
           mkdir -p dist/stage/dmrdash
-          cp -r dmrdash.py index.html rxoffset.py power.py tui.py dmrdash.service dmrdash-rxoffset.path dmrdash-rxoffset.service \
+          cp -r dmrdash.py index.html rxoffset.py master.py power.py tui.py dmrdash.service dmrdash-rxoffset.path dmrdash-rxoffset.service dmrdash-master.path dmrdash-master.service \
                 dmrdash-power.path dmrdash-power.service \
                 dmrdash.conf.example install.sh \
                 README.md LICENSE NOTICE licenses dist/stage/dmrdash/

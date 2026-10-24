@@ -1,0 +1,14 @@
+[Unit]
+Description=Move the hotspot to a BrandMeister master requested by the DMRHost dashboard
+# master.py takes one master ID from the request, edits only [DMR Network] Address= in MMDVM.ini, and restarts DMRHost.
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 -I /opt/dmrdash/master.py
+NoNewPrivileges=yes
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+PrivateNetwork=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes

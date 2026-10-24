@@ -158,6 +158,9 @@ h2.lg { margin: 0; }
 .power { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; padding: 10px 4px 0; border-top: 1px solid var(--row); }
 .power h3 { margin: 0 auto 0 0; }
 .power .none { margin: 0; flex-basis: 100%; }
+/* the BrandMeister master DMRHost logs in to, just above the Pi row */
+.master select { flex: 1 1 150px; min-width: 0; height: 34px; border-radius: 6px; border: 1px solid var(--legend); background: var(--panel-2); color: var(--white); font: 13px/1 var(--sans); padding: 0 8px; }
+.master select:disabled { opacity: .45; }
 /* live log: a RAM-only tail of the DMRHost journal */
 .livelog { padding-bottom: 0; overflow: hidden; }
 .livelog .logbar { gap: 6px 12px; }
@@ -521,6 +524,7 @@ dt { color: var(--legend-dim); } dd { margin: 0; overflow-wrap: anywhere; } dd.n
         <h3 class="lg">Station</h3><dl id="station"></dl>
         <h3 class="lg">Sections</h3><ul class="secs" id="secs"></ul>
         <div class="evhead"><h3 class="lg">Events</h3><button class="link" id="evclear" type="button">Clear</button></div><ul class="ev" id="events"></ul>
+        <div class="power master" id="master"></div>
         <div class="power" id="power"></div>
       </div>
     </div>
@@ -665,6 +669,7 @@ function health() {
     alarm = ["BrandMeister link " + (net === "login failed" ? "login failed" : "lost"),
       (net === "login failed" ? "The master rejected the hotspot password. " : "Retrying the master since " + ago(S.network.since) + " ago. ")
       + "RF still works locally; nothing reaches the network."];
+  if (S.master && S.master.target) alarm = ["Moving to master " + S.master.target, "DMRHost restarts and logs in again; the link is down for a few seconds."];
   if (ui.power) alarm = ui.power.what === "reboot"
     ? ["Restarting the hotspot", "Off the air for a minute or so. This page reconnects by itself."]
     : ["Shutting down the hotspot", "Once the Pi's green LED stops flashing it is safe to unplug. Plug it back in to start it again."];
@@ -1236,12 +1241,17 @@ function renderPower() {
     : h("p", { class: "none" }, "Restart and shut down need the dmrdash-power helper; rerun install.sh."));
 }
 function askPower(what) {
-  const d = $("powdlg"), reboot = what === "reboot";
-  $("powtitle").textContent = reboot ? "Restart the hotspot?" : "Shut down the hotspot?";
-  $("powwhy").textContent = reboot
+  const reboot = what === "reboot";
+  return askConfirm(reboot ? "Restart the hotspot?" : "Shut down the hotspot?", reboot
     ? "The Pi reboots, cutting any call in progress. DMRHost is off the air for about a minute, and this page reconnects by itself."
-    : "The Pi shuts down and stays off the air. Nothing on the network can turn it back on: its power has to be unplugged and plugged in again.";
-  $("powok").textContent = reboot ? "Restart" : "Shut down";
+    : "The Pi shuts down and stays off the air. Nothing on the network can turn it back on: its power has to be unplugged and plugged in again.",
+    reboot ? "Restart" : "Shut down");
+}
+function askConfirm(title, why, verb) {
+  const d = $("powdlg");
+  $("powtitle").textContent = title;
+  $("powwhy").textContent = why;
+  $("powok").textContent = verb;
   return new Promise((resolve) => {
     d.addEventListener("close", () => resolve(d.returnValue === "ok"), { once: true });
     d.returnValue = "";
@@ -1256,6 +1266,42 @@ async function powerAct(what) {
   try {
     const { ok, status, j } = await post({ action: "power", what });
     if (ok) { ui.power = { what, down: false }; ui.msg[0] = null; }
+    else say(0, j.error || "Failed (HTTP " + status + ")", true);
+  } catch (e) { say(0, "Can't reach the dashboard on the Pi", true); }
+  ui.busy = null; render(true);
+}
+
+/* ---------------- BrandMeister master ---------------- */
+let regions = null;
+try { regions = new Intl.DisplayNames([], { type: "region" }); } catch (e) {}
+const region = (cc) => { try { return (regions && cc && regions.of(cc)) || cc; } catch (e) { return cc; } };
+const masterName = (m) => m.id + " · " + region(m.country);
+function renderMaster(force) {
+  const box = $("master"), sel = $("msel");
+  if (!force && sel && document.activeElement === sel) return;  // rebuilding would close an open list
+  const m = S.master || {}, list = S.masters || [], cur = (S.bm.device && S.bm.device.lastKnownMaster) || null;
+  const note = (text) => fill(box, h("h3", { class: "lg" }, "Master"), h("p", { class: "none" }, text));
+  if (m.target) return note("Moving to " + m.target + ". DMRHost is restarting and logging in again…");
+  if (!m.can) return note("Switching masters needs the dmrdash-master helper; rerun install.sh.");
+  if (!list.length) return note(S.bm.error ? "No master list: BrandMeister API unreachable." : "Fetching the master list…");
+  if (!list.some((x) => x.id === ui.mpick)) ui.mpick = list.some((x) => x.id === cur) ? cur : list[0].id;
+  const off = !!ui.busy || !!ui.power;
+  fill(box, h("h3", { class: "lg" }, "Master"),
+    h("select", { id: "msel", "aria-label": "BrandMeister master", disabled: off, onchange: (e) => { ui.mpick = Number(e.target.value); render(true); } },
+      list.map((x) => h("option", { value: x.id, selected: x.id === ui.mpick }, masterName(x) + (x.id === cur ? " (now)" : "")))),
+    h("button", { class: "key sm act", id: "mgo", type: "button", disabled: off || ui.mpick === cur, onclick: () => masterAct(ui.mpick) }, "Switch"));
+}
+async function masterAct(id) {
+  if (ui.busy || ui.power) return;
+  const x = (S.masters || []).find((m) => m.id === id) || { id, country: "" };
+  ui.menu[3] = false; syncInfo();
+  if (!(await askConfirm("Move to master " + id + "?",
+    "DMRHost restarts to log in to " + id + (x.country ? " (" + region(x.country) + ")" : "") + ", cutting any call in progress. The link is down for a few seconds. Static talkgroups stay with the hotspot.",
+    "Move"))) { focusId("ibtn"); return; }
+  ui.busy = "master"; ui.msg[0] = { text: "Working…" }; render(true);
+  try {
+    const { ok, status, j } = await post({ action: "master", id });
+    if (ok) ui.msg[0] = null;  // the alarm banner says it's moving until BrandMeister sees the new master
     else say(0, j.error || "Failed (HTTP " + status + ")", true);
   } catch (e) { say(0, "Can't reach the dashboard on the Pi", true); }
   ui.busy = null; render(true);
@@ -1407,7 +1453,7 @@ function render(force) {
   renderStrip();
   renderGlobal(force);
   for (const n of [1, 2]) renderVfo(n, force);
-  renderLog(); renderBer(force); renderStation(); renderEvents(); renderPower();
+  renderLog(); renderBer(force); renderStation(); renderEvents(); renderMaster(force); renderPower();
   if (focused && $(focused)) $(focused).focus();
 }
 
