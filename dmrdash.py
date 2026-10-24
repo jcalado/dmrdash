@@ -27,7 +27,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 CONF_PATH = os.environ.get("DMRDASH_CONF", "/etc/dmrdash.conf")
 HERE = os.path.dirname(os.path.abspath(__file__))
 BM_API = "https://api.brandmeister.network/v2"
-VERSION = "1.1.0"
+VERSION = "1.1.1"
 USER_AGENT = "dmrdash/" + VERSION
 
 DEFAULTS = {
@@ -161,7 +161,7 @@ STATE = {
     "started": time.time(),
     "host": {"status": "unknown", "since": None, "version": None},
     "modem": {"status": "unknown", "description": None, "since": None},
-    "network": {"status": "unknown", "since": None},
+    "network": {"status": "unknown", "since": None, "address": None},  # address: the master DMRHost logged at startup
     "slots": {1: empty_slot(), 2: empty_slot()},
     "lastheard": collections.deque(maxlen=int(CONF["lastheard_size"])),
     "events": collections.deque(maxlen=60),  # the page collapses retry storms, so keep enough to show what came before one
@@ -186,6 +186,8 @@ RE_ALIAS = re.compile(r'Talker Alias "(.*)"$')
 RE_REJECT = re.compile(r"RF user (\d+) rejected(?: for using TG (\d+))?$")
 RE_RXOFFSET = re.compile(r"^\s*RX Offset: (-?\d+)Hz$")
 RE_LOGLINE = re.compile(r"^DMRHost: ([DMIWEF]): \S+ \S+ (.*)$")
+RE_PARAM_ADDR = re.compile(r"^\s+Address: (\S+)$")
+LOG_SECTION = [None]  # the "... Parameters" block DMRHost is listing at startup
 
 # Raw log lines for the page's live log view: a RAM ring buffer fed by the same journal stream
 # (the journal itself is volatile), so showing the log costs no SD card writes.
@@ -221,6 +223,10 @@ def handle_line(ts, level, msg):
         STATE["rxoffset"] = int(m.group(1))
         tune_offset_seen(ts, STATE["rxoffset"])
         return
+    if msg.endswith(" Parameters"):
+        LOG_SECTION[0] = msg
+    elif LOG_SECTION[0] == "DMR Network Parameters" and RE_PARAM_ADDR.match(msg):
+        STATE["network"]["address"] = RE_PARAM_ADDR.match(msg).group(1)
     if msg.startswith("DMRHost-") and msg.endswith(" is starting"):
         STATE["host"].update(status="starting", since=ts, version=msg.split()[0])
         STATE["slots"] = {1: empty_slot(), 2: empty_slot()}
@@ -238,7 +244,9 @@ def handle_line(ts, level, msg):
     elif msg == "DMR, Logged into the master successfully":
         STATE["network"].update(status="connected", since=ts)
         add_event(ts, "M", "Logged into the BrandMeister master")
-        if MASTER["target"]:  # ask BM soon which master it now sees us on, rather than at the next poll
+        if MASTER["target"] and master_of(STATE["network"]["address"]) == MASTER["target"]:
+            master_seen(MASTER["target"])
+        elif MASTER["target"]:  # ask BM soon which master it now sees us on, rather than at the next poll
             threading.Timer(5, bm_refresh).start()
     elif msg.startswith("DMR, Login to the master has failed"):
         STATE["network"].update(status="login failed", since=ts)
@@ -386,7 +394,7 @@ def bm_refresh(names=False):
                 BM["talkgroups"] = tgs
                 BM["tg_names_updated"] = time.time()
             if isinstance(masters, list) and masters:
-                BM["masters"] = sorted(({"id": int(m["id"]), "country": str(m.get("country") or "")}
+                BM["masters"] = sorted(({"id": int(m["id"]), "country": str(m.get("country") or ""), "address": str(m.get("address") or "")}
                                         for m in masters if str(m.get("id", "")).isdigit()), key=lambda m: m["id"])
             master_seen(device.get("lastKnownMaster"))
     except (BMError, ValueError) as e:
@@ -803,26 +811,41 @@ def can_master():
     return os.path.exists(os.path.join(HERE, "master.py"))
 
 
+def master_of(address):
+    """The master ID behind an Address= DMRHost logged: <id>.master.brandmeister.network, or a listed master's IP."""
+    if not address:
+        return None
+    m = re.fullmatch(r"(\d{4})\.master\.brandmeister\.network\.?", address.lower())
+    if m:
+        return int(m.group(1))
+    return next((x["id"] for x in BM["masters"] if x.get("address") == address), None)
+
+
+def current_master():
+    """Under LOCK: the master DMRHost was started with, else the one BrandMeister last saw (which lags)."""
+    return master_of(STATE["network"]["address"]) or (BM["device"] or {}).get("lastKnownMaster")
+
+
 def master_seen(master):
-    """Called under LOCK with BrandMeister's lastKnownMaster after each refresh."""
+    """Called under LOCK with BrandMeister's lastKnownMaster after each refresh, or the logged master on login."""
     if MASTER["target"] and master == MASTER["target"]:
         add_event(time.time(), "M", f"Moved to BrandMeister master {master}")
         MASTER.update(target=None, requested=None)
 
 
 def request_master(mid):
+    # Not checked against BM's list, which leaves some live masters out (2681). master.py only ever writes
+    # <id>.master.brandmeister.network, so an ID BrandMeister doesn't run simply never logs in.
     if not isinstance(mid, int) or isinstance(mid, bool) or not 1000 <= mid <= 9999:
         raise BMError("A master ID is four digits")
     if not can_master():
         raise BMError("Switching masters needs the dmrdash-master helper; rerun install.sh")
     with LOCK:
-        if BM["masters"] and mid not in {m["id"] for m in BM["masters"]}:
-            raise BMError(f"{mid} isn't a BrandMeister master")
         if MASTER["target"]:
             raise BMError(f"Already moving to master {MASTER['target']}")
         if TUNE["state"] in ("running", "done"):
             raise BMError("Finish the RX offset tuning run first")
-        if (BM["device"] or {}).get("lastKnownMaster") == mid and STATE["network"]["status"] == "connected":
+        if current_master() == mid and STATE["network"]["status"] == "connected":
             raise BMError(f"The hotspot is already on master {mid}")
         try:
             with open(MASTER_PATH, "w") as f:
@@ -919,7 +942,7 @@ def snapshot():
             },
             "tg_names": names,
             "masters": BM["masters"],
-            "master": {"can": can_master(), "target": MASTER["target"], "requested": MASTER["requested"]},
+            "master": {"can": can_master(), "current": current_master(), "target": MASTER["target"], "requested": MASTER["requested"]},
             "presets": [dict(p) for p in PRESETS],
         }
 

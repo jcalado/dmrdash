@@ -222,7 +222,7 @@ class ServerTest(unittest.TestCase):
         dmrdash.BM["masters"] = [{"id": 2682, "country": "PT"}, {"id": 2141, "country": "ES"}]
         s = json.loads(self.req("GET", "/api/state")[1])
         self.assertEqual((s["masters"][0]["id"], s["master"]["can"], s["master"]["target"]), (2682, True, None))
-        for mid in (2999, "2141", 99999, None, True):  # not a listed master, or not a number
+        for mid in (999, "2141", 99999, None, True):  # not four digits, or not a number
             self.assertEqual(self.req("POST", "/api/bm", {"action": "master", "id": mid}, pin)[0], 400)
         self.assertFalse(os.path.exists(dmrdash.MASTER_PATH))
         status, data = self.req("POST", "/api/bm", {"action": "master", "id": 2141}, pin)
@@ -237,6 +237,21 @@ class ServerTest(unittest.TestCase):
             dmrdash.master_seen(2141)
         self.assertIsNone(dmrdash.MASTER["target"])
         self.assertEqual(dmrdash.STATE["events"][0]["text"], "Moved to BrandMeister master 2141")
+
+    def test_master_from_startup_log(self):
+        # BrandMeister lags a move by minutes; DMRHost's own startup listing names the master at once
+        dmrdash.BM["device"] = {"lastKnownMaster": 2141}
+        dmrdash.BM["masters"] = [{"id": 2682, "country": "PT", "address": "193.137.237.12"}]
+        for line in ("Display Parameters", "    Address: 127.0.0.1", "DMR Network Parameters",
+                     "    Address: 2681.master.brandmeister.network", "    Port: 62031", "Info Parameters"):
+            dmrdash.handle_line(2000, "I", line)
+        self.assertEqual(json.loads(self.req("GET", "/api/state")[1])["master"]["current"], 2681)
+        dmrdash.handle_line(2001, "I", "DMR Network Parameters")
+        dmrdash.handle_line(2001, "I", "    Address: 193.137.237.12")  # an IP: looked up in BM's list
+        with dmrdash.LOCK:
+            self.assertEqual(dmrdash.current_master(), 2682)
+        dmrdash.STATE["network"]["address"] = None
+        dmrdash.BM["device"] = None
 
     def test_master_helper_edits_only_dmr_network_address(self):
         spec = importlib.util.spec_from_file_location("master", os.path.join(ROOT, "master.py"))

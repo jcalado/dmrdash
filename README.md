@@ -29,8 +29,8 @@ talkgroups from your phone without logging in to SelfCare.
 - **RF BER trend:** the BER of each over from your radio, with RX offset changes marked.
 - **RX offset tuning:** when your BER stays high, the dashboard suggests an offset from your recent overs.
   A tuning run steps the offset while you key up, then asks before keeping the best one.
-- **Master switching:** pick another BrandMeister master from the (i) menu. DMRHost restarts and logs in to it,
-  and the dashboard confirms once BrandMeister sees the hotspot there.
+- **Master switching:** pick another BrandMeister master from the (i) menu, or type the ID of one BrandMeister's
+  list leaves out. DMRHost restarts and logs in to it, and the dashboard confirms once it has.
 - **Live log:** an MMDVM-style tail of the hotspot log, kept in RAM.
 - **Terminal view:** `dmrdash-tui` shows both timeslots, talkgroups, last heard and the live log in a terminal,
   for when you're on the Pi over SSH. It is read-only.

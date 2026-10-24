@@ -188,7 +188,7 @@ class Screen:
         """Status lights and the one alarm worth a banner, as the page works them out."""
         offline = self.feed.last_ok and time.time() - self.feed.last_ok > OFFLINE_AFTER
         host, modem, net = s["host"]["status"], s["modem"]["status"], s["network"]["status"]
-        master = (s["bm"].get("device") or {}).get("lastKnownMaster") or "link"
+        master = (s.get("master") or {}).get("current") or (s["bm"].get("device") or {}).get("lastKnownMaster") or "link"
         leds = [
             ["host", "on" if host == "running" else "warn" if host == "starting" else "fail"],
             ["modem", "on" if modem == "ok" else "warn" if modem == "opening" else "fail"],

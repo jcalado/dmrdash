@@ -161,6 +161,7 @@ h2.lg { margin: 0; }
 /* the BrandMeister master DMRHost logs in to, just above the Pi row */
 .master select { flex: 1 1 150px; min-width: 0; height: 34px; border-radius: 6px; border: 1px solid var(--legend); background: var(--panel-2); color: var(--white); font: 13px/1 var(--sans); padding: 0 8px; }
 .master select:disabled { opacity: .45; }
+.master input { flex: 0 0 8ch; width: 8ch; height: 34px; border-radius: 6px; border: 1px solid var(--legend); background: var(--panel-2); color: var(--white); font: 14px/1 var(--mono); padding: 0 8px; }
 /* live log: a RAM-only tail of the DMRHost journal */
 .livelog { padding-bottom: 0; overflow: hidden; }
 .livelog .logbar { gap: 6px 12px; }
@@ -657,7 +658,7 @@ function health() {
   const leds = [
     ["DMRHost", host === "running" ? "on" : host === "starting" ? "warn" : "fail", host, (hostVersion() || "version unknown") + since(S.host)],
     ["Modem", modem === "ok" ? "on" : modem === "opening" ? "warn" : "fail", modem, (modemName() || "no modem reported") + since(S.modem)],
-    ["BM " + ((S.bm.device && S.bm.device.lastKnownMaster) || "link"),
+    ["BM " + (curMaster() || "link"),
       net === "connected" ? "on" : (net === "connecting" || net === "unknown") ? "warn" : "fail", net,
       (S.network.since ? "since " + hhmmss(S.network.since).slice(0, 5) + since(S.network) : "no news from DMRHost yet")],
   ];
@@ -1182,7 +1183,7 @@ function renderLog(force) {
 function renderStation() {
   const d = S.bm.device || {};
   const rows = [
-    ["Link", d.statusText ? d.statusText + (d.lastKnownMaster ? " · master " + d.lastKnownMaster : "") : (S.bm.error ? "BrandMeister API unreachable" : "…")],
+    ["Link", d.statusText ? d.statusText + (curMaster() ? " · master " + curMaster() : "") : (S.bm.error ? "BrandMeister API unreachable" : "…")],
     ["RX / TX", d.rx ? (d.rx + " / " + d.tx + " MHz").replace(/\.0000/g, ".000") : "—"],
     ["Colour code", d.colorcode != null ? d.colorcode : "—"],
     ["Modem", modemName() || "—"],
@@ -1275,21 +1276,34 @@ async function powerAct(what) {
 let regions = null;
 try { regions = new Intl.DisplayNames([], { type: "region" }); } catch (e) {}
 const region = (cc) => { try { return (regions && cc && regions.of(cc)) || cc; } catch (e) { return cc; } };
-const masterName = (m) => m.id + " · " + region(m.country);
+const masterName = (m) => m.id + (m.country ? " · " + region(m.country) : "");
+// what DMRHost logged at startup, else what BrandMeister last saw (which lags a move by minutes)
+const curMaster = () => (S.master && S.master.current) || (S.bm.device && S.bm.device.lastKnownMaster) || null;
 function renderMaster(force) {
   const box = $("master"), sel = $("msel");
-  if (!force && sel && document.activeElement === sel) return;  // rebuilding would close an open list
-  const m = S.master || {}, list = S.masters || [], cur = (S.bm.device && S.bm.device.lastKnownMaster) || null;
+  if (!force && document.activeElement && [sel, $("mother")].includes(document.activeElement)) return;  // rebuilding would close an open list or eat typing
+  const m = S.master || {}, cur = curMaster();
+  let list = S.masters || [];
+  // BrandMeister's list leaves some masters out (2681, say); the current one is always offered
+  if (cur && list.length && !list.some((x) => x.id === cur)) list = [...list, { id: cur, country: "" }].sort((a, b) => a.id - b.id);
   const note = (text) => fill(box, h("h3", { class: "lg" }, "Master"), h("p", { class: "none" }, text));
   if (m.target) return note("Moving to " + m.target + ". DMRHost is restarting and logging in again…");
   if (!m.can) return note("Switching masters needs the dmrdash-master helper; rerun install.sh.");
   if (!list.length) return note(S.bm.error ? "No master list: BrandMeister API unreachable." : "Fetching the master list…");
-  if (!list.some((x) => x.id === ui.mpick)) ui.mpick = list.some((x) => x.id === cur) ? cur : list[0].id;
-  const off = !!ui.busy || !!ui.power;
+  if (ui.mpick !== "other" && !list.some((x) => x.id === ui.mpick)) ui.mpick = list.some((x) => x.id === cur) ? cur : list[0].id;
+  const off = !!ui.busy || !!ui.power, other = ui.mpick === "other";
+  // "Other master ID…" takes four digits typed in, for a master the list leaves out
+  const pick = () => other ? (/^[1-9]\d{3}$/.test(ui.mother || "") ? Number(ui.mother) : null) : ui.mpick;
+  const go = h("button", { class: "key sm act", id: "mgo", type: "button", disabled: off || !pick() || pick() === cur, onclick: () => masterAct(pick()) }, "Switch");
   fill(box, h("h3", { class: "lg" }, "Master"),
-    h("select", { id: "msel", "aria-label": "BrandMeister master", disabled: off, onchange: (e) => { ui.mpick = Number(e.target.value); render(true); } },
-      list.map((x) => h("option", { value: x.id, selected: x.id === ui.mpick }, masterName(x) + (x.id === cur ? " (now)" : "")))),
-    h("button", { class: "key sm act", id: "mgo", type: "button", disabled: off || ui.mpick === cur, onclick: () => masterAct(ui.mpick) }, "Switch"));
+    h("select", { id: "msel", "aria-label": "BrandMeister master", disabled: off, onchange: (e) => {
+        ui.mpick = e.target.value === "other" ? "other" : Number(e.target.value); render(true); if (ui.mpick === "other") focusId("mother"); } },
+      list.map((x) => h("option", { value: x.id, selected: x.id === ui.mpick }, masterName(x) + (x.id === cur ? " (now)" : ""))),
+      h("option", { value: "other", selected: other }, "Other master ID…")),
+    other ? h("input", { id: "mother", type: "text", inputmode: "numeric", maxlength: 4, autocomplete: "off", placeholder: "2681", "aria-label": "Master ID, four digits", value: ui.mother || "", disabled: off,
+      oninput: (e) => { ui.mother = e.target.value.trim(); go.disabled = off || !pick() || pick() === cur; },
+      onkeydown: (e) => { if (e.key === "Enter" && !go.disabled) { e.preventDefault(); go.click(); } } }) : null,  // preventDefault, or the same Enter presses Cancel in the dialog
+    go);
 }
 async function masterAct(id) {
   if (ui.busy || ui.power) return;
