@@ -66,7 +66,7 @@ jobs:
           # the key that signs must be the one the package ships
           [ "$(gpg --with-colons --show-keys packaging/dmrdash-archive-keyring.gpg | awk -F: '$1=="fpr"{print $10; exit}')" = \
             "$(gpg --with-colons --list-secret-keys | awk -F: '$1=="fpr"{print $10; exit}')" ] || { echo "APT_SIGNING_KEY doesn't match the packaged keyring"; exit 1; }
-          packaging/apt-repo.sh site dist/dmrdash_*_all.deb
+          sh packaging/apt-repo.sh site dist/dmrdash_*_all.deb
       - name: Publish
         working-directory: site
         run: |
