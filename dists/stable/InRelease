@@ -1,0 +1,42 @@
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA512
+
+Architectures: all amd64 arm64 armhf i386
+Codename: stable
+Components: main
+Date: Sun, 25 Oct 2026 19:50:51 +0000
+Description: dmrdash, a LAN dashboard for BrandMeister DMRHost hotspots
+Label: dmrdash
+Origin: dmrdash
+Suite: stable
+MD5Sum:
+ 6c94fc40e2167c2e74878dac86094ecb             1060 main/binary-all/Packages
+ 6c94fc40e2167c2e74878dac86094ecb             1060 main/binary-amd64/Packages
+ 6c94fc40e2167c2e74878dac86094ecb             1060 main/binary-arm64/Packages
+ 6c94fc40e2167c2e74878dac86094ecb             1060 main/binary-armhf/Packages
+ 6c94fc40e2167c2e74878dac86094ecb             1060 main/binary-i386/Packages
+SHA1:
+ ec35551005626f7a6b4dfd3f79b16c99145439e0             1060 main/binary-all/Packages
+ ec35551005626f7a6b4dfd3f79b16c99145439e0             1060 main/binary-amd64/Packages
+ ec35551005626f7a6b4dfd3f79b16c99145439e0             1060 main/binary-arm64/Packages
+ ec35551005626f7a6b4dfd3f79b16c99145439e0             1060 main/binary-armhf/Packages
+ ec35551005626f7a6b4dfd3f79b16c99145439e0             1060 main/binary-i386/Packages
+SHA256:
+ 78267b9498f3f2bdae38a6aa685f8055e14ef7d1f37314917b05c741c8c91202             1060 main/binary-all/Packages
+ 78267b9498f3f2bdae38a6aa685f8055e14ef7d1f37314917b05c741c8c91202             1060 main/binary-amd64/Packages
+ 78267b9498f3f2bdae38a6aa685f8055e14ef7d1f37314917b05c741c8c91202             1060 main/binary-arm64/Packages
+ 78267b9498f3f2bdae38a6aa685f8055e14ef7d1f37314917b05c741c8c91202             1060 main/binary-armhf/Packages
+ 78267b9498f3f2bdae38a6aa685f8055e14ef7d1f37314917b05c741c8c91202             1060 main/binary-i386/Packages
+SHA512:
+ 6ac9a183214426d0df28db0775ff7822abc6eb7fb23a371fda96a98d81ca2b9cc026f74058ecd1d1d1a3d1056460813675128666e0584872048ac0c3cf431fd4             1060 main/binary-all/Packages
+ 6ac9a183214426d0df28db0775ff7822abc6eb7fb23a371fda96a98d81ca2b9cc026f74058ecd1d1d1a3d1056460813675128666e0584872048ac0c3cf431fd4             1060 main/binary-amd64/Packages
+ 6ac9a183214426d0df28db0775ff7822abc6eb7fb23a371fda96a98d81ca2b9cc026f74058ecd1d1d1a3d1056460813675128666e0584872048ac0c3cf431fd4             1060 main/binary-arm64/Packages
+ 6ac9a183214426d0df28db0775ff7822abc6eb7fb23a371fda96a98d81ca2b9cc026f74058ecd1d1d1a3d1056460813675128666e0584872048ac0c3cf431fd4             1060 main/binary-armhf/Packages
+ 6ac9a183214426d0df28db0775ff7822abc6eb7fb23a371fda96a98d81ca2b9cc026f74058ecd1d1d1a3d1056460813675128666e0584872048ac0c3cf431fd4             1060 main/binary-i386/Packages
+-----BEGIN PGP SIGNATURE-----
+
+iHUEARYKAB0WIQRmGyW4QZTdxygDxuQRbNgplRxazgUCat5dmwAKCRARbNgplRxa
+zq9ZAPoDoOPPo2yXuttsW4YWV35NQXXNTsz9VMGblGAQARMa9gEAjcGWX2ZFA1zI
+77JniYSHndVr6+DAzoEh5tHxg/AYtgA=
+=MsNW
+-----END PGP SIGNATURE-----
