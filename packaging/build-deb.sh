@@ -9,12 +9,13 @@ PKG=$(mktemp -d)
 chmod 0755 "$PKG"
 trap 'rm -rf "$PKG"' EXIT
 
-install -d "$PKG/DEBIAN" "$PKG/opt/dmrdash" "$PKG/usr/bin" "$PKG/usr/lib/systemd/system" "$PKG/usr/share/doc/dmrdash"
+install -d "$PKG/DEBIAN" "$PKG/opt/dmrdash" "$PKG/opt/dmrdash/vendor" "$PKG/usr/bin" "$PKG/usr/lib/systemd/system" "$PKG/usr/share/doc/dmrdash"
 install -m 0644 "$ROOT/dmrdash.py" "$ROOT/index.html" "$PKG/opt/dmrdash/"
+install -m 0644 "$ROOT/vendor/xterm.mjs" "$ROOT/vendor/addon-fit.mjs" "$ROOT/vendor/xterm.css" "$PKG/opt/dmrdash/vendor/"
 install -m 0755 "$ROOT/rxoffset.py" "$ROOT/rflevel.py" "$ROOT/master.py" "$ROOT/power.py" "$ROOT/tui.py" "$PKG/opt/dmrdash/"
 ln -s /opt/dmrdash/tui.py "$PKG/usr/bin/dmrdash-tui"
 install -m 0644 "$ROOT/dmrdash.service" "$ROOT/dmrdash-rxoffset.path" "$ROOT/dmrdash-rxoffset.service" "$ROOT/dmrdash-master.path" "$ROOT/dmrdash-master.service" "$ROOT/dmrdash-power.path" "$ROOT/dmrdash-power.service" "$ROOT/dmrdash-rflevel.path" "$ROOT/dmrdash-rflevel.service" "$PKG/usr/lib/systemd/system/"
-install -m 0644 "$ROOT/dmrdash.conf.example" "$ROOT/README.md" "$ROOT/NOTICE" "$ROOT/licenses/Saira-OFL.txt" "$ROOT/licenses/DSEG-OFL.txt" "$PKG/usr/share/doc/dmrdash/"
+install -m 0644 "$ROOT/dmrdash.conf.example" "$ROOT/README.md" "$ROOT/NOTICE" "$ROOT/licenses/Saira-OFL.txt" "$ROOT/licenses/DSEG-OFL.txt" "$ROOT/licenses/xterm-LICENSE.txt" "$PKG/usr/share/doc/dmrdash/"
 install -m 0644 "$ROOT/LICENSE" "$PKG/usr/share/doc/dmrdash/copyright"
 for s in postinst prerm postrm; do install -m 0755 "$ROOT/packaging/$s" "$PKG/DEBIAN/"; done
 

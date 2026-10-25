@@ -332,6 +332,64 @@ class ServerTest(unittest.TestCase):
                 with self.assertRaises(SystemExit):
                     rl.read_request()
 
+    def ws_open(self, path, origin="http://localhost"):
+        """A raw WebSocket handshake: (socket, status line, the bytes after the headers)."""
+        import socket
+        s = socket.create_connection(("127.0.0.1", self.srv.server_port), timeout=5)
+        s.sendall((f"GET {path} HTTP/1.1\r\nHost: localhost\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n"
+                   f"Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\nOrigin: {origin}\r\n\r\n").encode())
+        buf = b""
+        while b"\r\n\r\n" not in buf:
+            chunk = s.recv(4096)
+            if not chunk:
+                break
+            buf += chunk
+        head, _, rest = buf.partition(b"\r\n\r\n")
+        return s, head.decode(), rest
+
+    def test_shell(self):
+        pin = {"X-Dmrdash-Pin": "4321"}
+        self.assertEqual(self.req("POST", "/api/bm", {"action": "shellTicket"}, pin)[0], 400)  # off by default
+        self.assertFalse(json.loads(self.req("GET", "/api/state")[1])["ssh"]["shell"])
+        real = dmrdash.can_shell, dmrdash.shell_cmd
+        dmrdash.can_shell = lambda: True
+        dmrdash.shell_cmd = lambda: ["sh", "-c", "stty -echo; printf ready; read x; printf 'got:%s' \"$x\""]
+        try:
+            self.assertEqual(self.req("POST", "/api/bm", {"action": "shellTicket"})[0], 401)  # the PIN applies
+            ticket = lambda: json.loads(self.req("POST", "/api/bm", {"action": "shellTicket"}, pin)[1])["ticket"]
+            t = ticket()
+            s, status, _ = self.ws_open(f"/api/shell?t={t}&cols=80&rows=24", origin="http://evil.example")
+            self.assertIn(" 400 ", status)  # another site's page can't open one
+            s.close()
+            s, status, rest = self.ws_open(f"/api/shell?t={t}&cols=80&rows=24")
+            self.assertIn(" 101 ", status)
+            # the RFC 6455 example key, so the accept value is known
+            self.assertIn("Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=", status)
+
+            def frame(op, data):
+                mask = b"\x01\x02\x03\x04"
+                return bytes([0x80 | op, 0x80 | len(data)]) + mask + bytes(b ^ mask[i % 4] for i, b in enumerate(data))
+            got = rest
+            while b"ready" not in got:
+                got += s.recv(4096)
+            s.sendall(frame(1, b'{"cols": 100, "rows": 30}') + frame(2, b"hello\r"))
+            while b"got:hello" not in got:
+                chunk = s.recv(4096)
+                self.assertTrue(chunk, got)
+                got += chunk
+            s.close()
+            s, status, _ = self.ws_open(f"/api/shell?t={t}&cols=80&rows=24")
+            self.assertIn(" 403 ", status)  # a ticket works once
+            s.close()
+        finally:
+            dmrdash.can_shell, dmrdash.shell_cmd = real
+
+    def test_ssh_user_must_be_a_plain_name(self):
+        for u, ok in (("joel", "joel"), ("pi-star", "pi-star"), ("-oProxyCommand=x", ""), ("joel@evil", ""), ("Joel", ""), (7, "")):
+            dmrdash.CONF["ssh_user"] = u
+            self.assertEqual(dmrdash.ssh_user(), ok, u)
+        dmrdash.CONF["ssh_user"] = ""
+
     def test_power_helper_checks_request(self):
         spec = importlib.util.spec_from_file_location("power", os.path.join(ROOT, "power.py"))
         pw = importlib.util.module_from_spec(spec)

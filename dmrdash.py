@@ -11,13 +11,24 @@ presets, a small JSON file written only when a preset is saved or deleted.
 https://github.com/jcalado/dmrdash - MIT licence
 """
 
+import base64
 import collections
+import fcntl
+import hashlib
 import hmac
+import itertools
 import json
 import os
+import pty
 import re
+import secrets
+import shutil
+import signal
+import socket
 import statistics
+import struct
 import subprocess
+import termios
 import threading
 import time
 import urllib.error
@@ -27,7 +38,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 CONF_PATH = os.environ.get("DMRDASH_CONF", "/etc/dmrdash.conf")
 HERE = os.path.dirname(os.path.abspath(__file__))
 BM_API = "https://api.brandmeister.network/v2"
-VERSION = "1.4.0"
+VERSION = "1.5.0"
 USER_AGENT = "dmrdash/" + VERSION
 
 DEFAULTS = {
@@ -41,6 +52,8 @@ DEFAULTS = {
     "bm_poll_seconds": 60,
     "allowed_hosts": [],
     "pin": "",  # when set, talkgroup changes need it (sent as X-Dmrdash-Pin)
+    "ssh_user": "",  # the Pi account the SSH link and console log in as
+    "shell": False,  # the in-browser console; off unless set
 }
 
 
@@ -536,6 +549,8 @@ def bm_action(body):
         return request_power(body.get("what"))
     elif action == "rflevel":
         return request_rflevel(body.get("pct"))
+    elif action == "shellTicket":
+        return shell_ticket()
     else:
         raise BMError("unknown action")
     bm_refresh()
@@ -981,6 +996,157 @@ def restart_watch():
                 RESTART["requested"] = None
 
 
+# --- console ----------------------------------------------------------------
+# The browser's terminal drives `ssh <ssh_user>@localhost` on a pty here. The Pi's own sshd asks for and
+# checks the password, so the dashboard gains no rights: it stays the sandboxed dmrdash user until sshd
+# logs the reader in, and a Pi set to key-only logins simply refuses. Off unless "shell" is true.
+#
+# Opening one takes a one-time ticket from POST /api/bm {"action": "shellTicket"}, which has the same custom
+# header and PIN checks as every other change. The WebSocket at /api/shell?t=<ticket> must then come from
+# this dashboard's own origin, because browsers don't apply CORS to WebSockets.
+
+SHELL_TICKETS = {}       # ticket -> expiry
+SHELL_TICKET_TTL = 30    # seconds between asking for a ticket and connecting with it
+SHELL_MAX = 2            # sessions at once
+SHELL = {"sessions": 0}
+WS_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
+
+
+def ssh_user():
+    """The configured account name, or "" when it isn't a plain Unix user name (it reaches ssh's argv)."""
+    u = str(CONF["ssh_user"] or "")
+    return u if re.fullmatch(r"[a-z_][a-z0-9_-]{0,31}", u) else ""
+
+
+def can_shell():
+    return CONF["shell"] is True and bool(ssh_user()) and shutil.which("ssh") is not None
+
+
+def shell_cmd():
+    # no ssh config of its own (-F /dev/null), host keys kept in the state folder, and only password logins:
+    # the dmrdash user has no keys, and must never borrow any
+    return ["ssh", "-F", "/dev/null", "-o", "UserKnownHostsFile=" + os.path.join(STATE_DIR, "known_hosts"),
+            "-o", "StrictHostKeyChecking=accept-new", "-o", "PubkeyAuthentication=no", "-o", "LogLevel=ERROR",
+            "-o", "ServerAliveInterval=30", "-l", ssh_user(), "localhost"]
+
+
+def shell_ticket():
+    if not can_shell():
+        raise BMError('The console is off. Set "shell": true and "ssh_user" in /etc/dmrdash.conf')
+    now = time.time()
+    with LOCK:
+        for t in [t for t, exp in SHELL_TICKETS.items() if exp < now]:
+            del SHELL_TICKETS[t]
+        if len(SHELL_TICKETS) > 20:
+            raise BMError("Too many console requests; try again in a minute")
+        ticket = secrets.token_urlsafe(24)
+        SHELL_TICKETS[ticket] = now + SHELL_TICKET_TTL
+    return {"ok": True, "ticket": ticket}
+
+
+def ws_send(sock, lock, opcode, payload=b""):
+    n = len(payload)
+    size = bytes([n]) if n < 126 else bytes([126]) + n.to_bytes(2, "big") if n < 65536 else bytes([127]) + n.to_bytes(8, "big")
+    with lock:
+        sock.sendall(bytes([0x80 | opcode]) + size + payload)
+
+
+def ws_recv(rfile):
+    """One frame from the browser as (opcode, payload), or None once the connection is gone or misbehaves."""
+    head = rfile.read(2)
+    if len(head) < 2:
+        return None
+    op, masked, n = head[0] & 0x0F, head[1] & 0x80, head[1] & 0x7F
+    if n == 126:
+        n = int.from_bytes(rfile.read(2), "big")
+    elif n == 127:
+        n = int.from_bytes(rfile.read(8), "big")
+    if not masked or n > 1 << 16:  # browsers always mask; a terminal never needs a bigger frame
+        return None
+    mask, data = rfile.read(4), rfile.read(n)
+    if len(mask) < 4 or len(data) < n:
+        return None
+    return op, bytes(a ^ b for a, b in zip(data, itertools.cycle(mask)))
+
+
+def set_winsize(fd, cols, rows):
+    cols, rows = max(1, min(int(cols), 500)), max(1, min(int(rows), 300))
+    fcntl.ioctl(fd, termios.TIOCSWINSZ, struct.pack("HHHH", rows, cols, 0, 0))
+
+
+def shell_session(rfile, sock, cols, rows):
+    """Bridge one WebSocket and one ssh on a pty until either side ends. Binary frames carry the terminal's
+    bytes both ways; a text frame from the browser is a resize, {"cols": c, "rows": r}."""
+    master, slave = pty.openpty()
+    set_winsize(master, cols, rows)
+    try:
+        # its own session, with the pty as controlling terminal: ssh reads the password from /dev/tty
+        proc = subprocess.Popen(shell_cmd(), stdin=slave, stdout=slave, stderr=slave, start_new_session=True,
+                                preexec_fn=lambda: fcntl.ioctl(0, termios.TIOCSCTTY, 0),
+                                env={"TERM": "xterm-256color", "LANG": "C.UTF-8", "PATH": "/usr/bin:/bin"})
+    except OSError as e:
+        os.close(master)
+        raise BMError(f"Can't start ssh: {e.strerror or e}")
+    finally:
+        os.close(slave)
+    lock = threading.Lock()
+
+    def pump():
+        try:
+            while True:
+                data = os.read(master, 16384)
+                if not data:
+                    break
+                ws_send(sock, lock, 2, data)
+        except OSError:
+            pass  # EIO once ssh has exited and the pty is gone
+        try:
+            ws_send(sock, lock, 8, (1000).to_bytes(2, "big"))
+            sock.shutdown(socket.SHUT_RDWR)  # unblocks the reader below
+        except OSError:
+            pass
+
+    out = threading.Thread(target=pump, daemon=True)
+    out.start()
+    try:
+        last = 2
+        while True:
+            frame = ws_recv(rfile)
+            if frame is None:
+                break
+            op, data = frame
+            if op == 0:
+                op = last  # a continuation of the frame before
+            elif op in (1, 2):
+                last = op
+            if op == 8:
+                break
+            if op == 9:
+                ws_send(sock, lock, 10, data)
+            elif op == 2:
+                while data:
+                    data = data[os.write(master, data):]
+            elif op == 1:
+                try:
+                    j = json.loads(data)
+                    set_winsize(master, j["cols"], j["rows"])
+                except (ValueError, KeyError, TypeError):
+                    pass
+    except OSError:
+        pass
+    finally:
+        try:
+            os.killpg(proc.pid, signal.SIGHUP)
+            proc.wait(timeout=3)
+        except ProcessLookupError:
+            pass
+        except subprocess.TimeoutExpired:
+            os.killpg(proc.pid, signal.SIGKILL)
+            proc.wait()
+        out.join(timeout=3)
+        os.close(master)
+
+
 # --- HTTP -------------------------------------------------------------------
 
 def local_ip():
@@ -1016,6 +1182,7 @@ def snapshot():
             "booted": booted(),
             "can_manage": bool(CONF["api_key"]),
             "can_power": can_power(),
+            "ssh": {"user": ssh_user(), "shell": can_shell()},
             "pin": bool(CONF["pin"]),
             "host": dict(STATE["host"]),
             "modem": dict(STATE["modem"]),
@@ -1062,6 +1229,10 @@ def pin_check(given):
     return 401, {"error": "Wrong PIN" if given else "PIN required", "pin": True}
 
 
+VENDOR = {"/vendor/xterm.mjs": "text/javascript; charset=utf-8", "/vendor/addon-fit.mjs": "text/javascript; charset=utf-8",
+          "/vendor/xterm.css": "text/css; charset=utf-8"}
+
+
 class Handler(BaseHTTPRequestHandler):
     server_version = "dmrdash"
 
@@ -1075,12 +1246,12 @@ class Handler(BaseHTTPRequestHandler):
         # IP literals are fine; unknown hostnames are refused (DNS rebinding guard)
         return host in allowed or re.fullmatch(r"[\d.]+|[0-9a-f:]+", host or "x") is not None
 
-    def send(self, code, body, ctype="application/json"):
+    def send(self, code, body, ctype="application/json", cache="no-store"):
         data = body if isinstance(body, bytes) else json.dumps(body).encode()
         self.send_response(code)
         self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(data)))
-        self.send_header("Cache-Control", "no-store")
+        self.send_header("Cache-Control", cache)
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("Referrer-Policy", "no-referrer")
         self.end_headers()
@@ -1094,6 +1265,12 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send(200, f.read(), "text/html; charset=utf-8")
         if self.path == "/api/state":
             return self.send(200, snapshot())
+        if self.path in VENDOR:
+            # the console's terminal (xterm.js), fetched only when it opens; a version bump changes the page, not these names
+            with open(os.path.join(HERE, "vendor", self.path.rsplit("/", 1)[1]), "rb") as f:
+                return self.send(200, f.read(), VENDOR[self.path], cache="max-age=86400")
+        if self.path.startswith("/api/shell"):
+            return self.shell()
         if self.path.startswith("/api/log"):
             m = re.fullmatch(r"/api/log(?:\?after=(\d+))?", self.path)
             if not m:
@@ -1103,6 +1280,38 @@ class Handler(BaseHTTPRequestHandler):
                 body = {"lines": [x for x in LOG if x["n"] > after], "last": LOG_SEQ[0]}
             return self.send(200, body)
         self.send(404, {"error": "not found"})
+
+    def shell(self):
+        m = re.fullmatch(r"/api/shell\?t=([\w-]{16,64})&cols=(\d{1,3})&rows=(\d{1,3})", self.path)
+        host, key = self.headers.get("Host") or "", self.headers.get("Sec-WebSocket-Key") or ""
+        # browsers don't apply CORS to WebSockets: only this dashboard's own page may open one
+        if not m or not key or (self.headers.get("Upgrade") or "").lower() != "websocket" \
+                or (self.headers.get("Origin") or "") not in ("http://" + host, "https://" + host):
+            return self.send(400, {"error": "bad request"})
+        refused = None
+        with LOCK:
+            if SHELL_TICKETS.pop(m.group(1), 0) < time.time():
+                refused = 403, {"error": "No or expired console ticket"}
+            elif SHELL["sessions"] >= SHELL_MAX:
+                refused = 429, {"error": f"Already {SHELL_MAX} consoles open"}
+            else:
+                SHELL["sessions"] += 1
+        if refused:
+            return self.send(*refused)
+        self.close_connection = True
+        try:
+            self.send_response(101, "Switching Protocols")
+            self.send_header("Upgrade", "websocket")
+            self.send_header("Connection", "Upgrade")
+            self.send_header("Sec-WebSocket-Accept", base64.b64encode(hashlib.sha1((key + WS_GUID).encode()).digest()).decode())
+            self.end_headers()
+            self.wfile.flush()
+            shell_session(self.rfile, self.connection, int(m.group(2)), int(m.group(3)))
+        except (OSError, BMError):
+            pass
+        finally:
+            with LOCK:
+                SHELL["sessions"] -= 1
 
     def do_POST(self):
         if not self.host_ok():

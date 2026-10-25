@@ -36,6 +36,9 @@ talkgroups from your phone without logging in to SelfCare.
 - **Master switching:** pick another BrandMeister master under BM in the Hotspot menu, or type the ID of one BrandMeister's
   list leaves out. DMRHost restarts and logs in to it, and the dashboard confirms once it has.
 - **Live log:** an MMDVM-style tail of the hotspot log, kept in RAM.
+- **SSH and a console:** the SSH key on the Hotspot menu's Pi row shows the `ssh` command with Copy, and opens your
+  phone's SSH app. With `"shell": true`, it also opens a console in the browser: you sign in with the Pi
+  account's password, as over SSH.
 - **Terminal view:** `dmrdash-tui` shows both timeslots, talkgroups, last heard and the live log in a terminal,
   for when you're on the Pi over SSH. It is read-only.
 - **Your layout:** drag Last heard, RF BER and Live log into the order you like, and hide any of them from the (i) menu.
@@ -124,6 +127,8 @@ q quits. `--ascii` draws without box characters.
 | `lastheard_size` | `50` | Calls kept in Last heard. |
 | `bm_poll_seconds` | `60` | How often BrandMeister is asked for link and subscription status. |
 | `allowed_hosts` | `[]` | Extra host names the dashboard answers to, e.g. a reverse-proxy name. |
+| `ssh_user` | `""` | The Pi account the SSH command, the SSH app link and the console use. Empty leaves it out, and your SSH app asks. |
+| `shell` | `false` | `true` turns on the console in the browser. It also needs `ssh_user`. |
 
 ## Security
 
@@ -160,6 +165,14 @@ dmrdash is meant for your **home LAN**. It has no user accounts.
   or restarts the hotspot service named by `"unit"`.
   These need the PIN when one is set. To turn them off, run `sudo systemctl disable --now dmrdash-power.path`.
 
+- **Console:** off unless `"shell": true`. It runs `ssh <ssh_user>@localhost` on the Pi and shows it in the
+  browser. The Pi's own SSH server asks for the account's password and checks it, so the dashboard gains no
+  rights: it stays its sandboxed user until you log in, and a Pi that only accepts SSH keys refuses. Opening one
+  takes a one-time ticket through the same checks as any other change, PIN included. The connection
+  must come from the dashboard's own page. At most two consoles at a time, and closing the console ends
+  its session. **The password crosses your network unencrypted**, because the dashboard is plain HTTP; for
+  anything sensitive, use SSH itself.
+
 ## Update and uninstall
 
 - **Update:** run the same install command again. Your settings and presets are kept.
@@ -184,6 +197,8 @@ dmrdash is meant for your **home LAN**. It has no user accounts.
   `journalctl -u dmrdash-master -n 20`, and that `[DMR Network] Address=` in MMDVM.ini changed.
 - **"DMRHost didn't come back at …% RF power":** check `systemctl status dmrdash-rflevel.path` and
   `journalctl -u dmrdash-rflevel -n 20`, and that MMDVM.ini has an `RFLevel=` line in `[Modem]`.
+- **The console says "session ended" right away:** check that `ssh_user` is a real account, that sshd is
+  running and allows password logins (`PasswordAuthentication`), and `journalctl -u ssh -n 20`.
 - **Restart or Shut down does nothing:** check `systemctl status dmrdash-power.path` and
   `journalctl -u dmrdash-power -n 20`.
 

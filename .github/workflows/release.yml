@@ -22,7 +22,7 @@ jobs:
           cp -r dmrdash.py index.html rxoffset.py rflevel.py master.py power.py tui.py dmrdash.service dmrdash-rxoffset.path dmrdash-rxoffset.service dmrdash-master.path dmrdash-master.service \
                 dmrdash-power.path dmrdash-power.service dmrdash-rflevel.path dmrdash-rflevel.service \
                 dmrdash.conf.example install.sh \
-                README.md LICENSE NOTICE licenses dist/stage/dmrdash/
+                README.md LICENSE NOTICE licenses vendor dist/stage/dmrdash/
           tar -czf dist/dmrdash.tar.gz -C dist/stage dmrdash
           cp install.sh dist/install.sh
           packaging/build-deb.sh

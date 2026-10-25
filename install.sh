@@ -79,6 +79,8 @@ python3 -c 'import sys; sys.exit(sys.version_info < (3, 9))' || die "needs Pytho
 id dmrdash >/dev/null 2>&1 || useradd --system --no-create-home --shell /usr/sbin/nologin dmrdash
 install -d -m 0755 "$DEST"
 install -m 0644 "$SRC/dmrdash.py" "$SRC/index.html" "$DEST/"
+install -d -m 0755 "$DEST/vendor"
+install -m 0644 "$SRC/vendor/xterm.mjs" "$SRC/vendor/addon-fit.mjs" "$SRC/vendor/xterm.css" "$DEST/vendor/"
 install -m 0755 "$SRC/rxoffset.py" "$SRC/rflevel.py" "$SRC/master.py" "$SRC/power.py" "$SRC/tui.py" "$DEST/"
 ln -sf "$DEST/tui.py" /usr/local/bin/dmrdash-tui
 NEW=0

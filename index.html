@@ -464,6 +464,37 @@ svg.ic { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-wid
   font: 700 14px/1 var(--mono); padding: 0 8px; }
 .addform input::placeholder { color: var(--lcd-dim); }
 .addform .hint { font-size: 12.5px; color: var(--legend); }
+/* SSH on the Pi row: the command with Copy, then Open in SSH app and Console */
+#pibox > * { flex-basis: 100%; }
+#hr3 #pibox { grid-row: 4; }
+/* on a phone three keys leave the Pi's address no room: they take a line of their own under it */
+@media (max-width: 480px) { #hr3 .hctl.inl { grid-column: 2 / -1; grid-row: 3; margin-top: 9px; } }
+.cmd { display: flex; align-items: center; gap: 8px; min-width: 0; height: 30px; padding: 0 3px 0 10px; border: 1px solid var(--rule-2); border-radius: 6px; background: var(--panel-2); }
+.cmd input { flex: 1; min-width: 0; border: 0; background: none; color: var(--white); font: 12.5px/1 var(--mono); padding: 0; }
+.cmd input:focus { outline: none; }
+.cmd:focus-within { border-color: var(--legend); }
+.cmd .key { min-height: 22px; height: 22px; padding: 0 8px; font-size: 11.5px; }
+.sshkeys { display: flex; flex-wrap: wrap; gap: 8px; }
+a.key { text-decoration: none; }
+/* the console: a sheet over the page, full screen on a phone; the terminal on the live log's dark ground */
+.shdlg { border: 1px solid var(--rule-2); border-radius: 10px; background: var(--panel-2); color: var(--white); padding: 12px 14px 10px;
+  width: min(980px, calc(100vw - 48px)); height: min(680px, calc(100dvh - 48px)); max-width: none; max-height: none; }
+.shdlg[open] { display: grid; grid-template-rows: auto minmax(0, 1fr) auto auto; gap: 10px; }
+.shdlg::backdrop { background: rgb(0 0 0 / .55); }
+.termbar { display: flex; align-items: center; gap: 10px; min-height: 30px; min-width: 0; }
+.termbar .who { font: 600 13px/1 var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.termbar .state { display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--legend); white-space: nowrap; }
+.termbar .sp { flex: 1; }
+.term { min-height: 0; background: #121416; border: 1px solid var(--rule); border-radius: 6px; padding: 6px 4px 6px 8px; overflow: hidden; }
+.term .xterm { height: 100%; }
+.tkeys { display: none; gap: 6px; }
+.tkeys button { flex: 1; min-width: 0; height: 36px; padding: 0; border-radius: 6px; border: 1px solid var(--rule-2); background: var(--panel-3); color: var(--legend); font: 600 12px/1 var(--mono); cursor: pointer; }
+.tkeys button[aria-pressed="true"] { border-color: var(--legend); background: var(--panel); color: var(--white); }
+.shdlg .fine { margin: 0; font-size: 12px; color: var(--legend-dim); }
+@media (max-width: 820px), (pointer: coarse) { .tkeys { display: flex; } }
+@media (max-width: 820px) {
+  .shdlg { width: 100vw; height: 100dvh; margin: 0; border: 0; border-radius: 0; padding: 10px 10px 8px; }
+}
 .pindlg, .cfmdlg { border: 1px solid var(--rule-2); border-radius: 10px; background: var(--panel-2); color: var(--white); padding: 16px; width: min(320px, calc(100vw - 32px)); }
 .pindlg::backdrop, .cfmdlg::backdrop { background: rgb(0 0 0 / .55); }
 .pindlg h3, .cfmdlg h3 { margin: 0 0 8px; }
@@ -548,7 +579,7 @@ dt { color: var(--legend-dim); } dd { margin: 0; overflow-wrap: anywhere; } dd.n
         <div class="hrow" id="hr0"><i class="lamp"></i><div class="hd"><span class="nm"></span><span class="st"></span></div><div class="hctl inl" id="hostrow"></div><span class="dt"></span></div>
         <div class="hrow" id="hr1"><i class="lamp"></i><div class="hd"><span class="nm"></span><span class="st"></span></div><span class="dt"></span><div class="hctl rfpow" id="rfpow"></div></div>
         <div class="hrow" id="hr2"><i class="lamp"></i><div class="hd"><span class="nm"></span><span class="st"></span></div><span class="dt"></span><div class="hctl master" id="master"></div></div>
-        <div class="hrow" id="hr3"><i class="lamp"></i><div class="hd"><span class="nm">Pi</span><span class="st"></span></div><div class="hctl inl" id="power"></div><span class="dt"></span></div>
+        <div class="hrow" id="hr3"><i class="lamp"></i><div class="hd"><span class="nm">Pi</span><span class="st"></span></div><div class="hctl inl" id="power"></div><span class="dt"></span><div class="hctl" id="pibox"></div></div>
       </div>
     </div>
     <div class="clock" id="clock"></div>
@@ -614,6 +645,17 @@ dt { color: var(--legend-dim); } dd { margin: 0; overflow-wrap: anywhere; } dd.n
   </form>
 </dialog>
 
+<dialog class="shdlg" id="shdlg" aria-labelledby="shwho">
+  <div class="termbar"><b class="who" id="shwho"></b><span class="state" id="shstate"></span><span class="sp"></span>
+    <button class="key sm act" id="shagain" type="button" hidden>Connect again</button>
+    <button class="key sm act sq" id="shclose" type="button" aria-label="Close the console and end the session" title="Close (ends the session)"></button></div>
+  <div class="term" id="term"></div>
+  <div class="tkeys" id="tkeys" aria-label="Keys your keyboard may lack">
+    <button type="button" data-seq="esc">Esc</button><button type="button" data-seq="tab">Tab</button><button type="button" data-seq="ctrl" aria-pressed="false">Ctrl</button>
+    <button type="button" data-seq="D" aria-label="Left">←</button><button type="button" data-seq="A" aria-label="Up">↑</button><button type="button" data-seq="B" aria-label="Down">↓</button><button type="button" data-seq="C" aria-label="Right">→</button></div>
+  <p class="fine">Your password crosses the network unencrypted, because the dashboard is plain HTTP. For anything sensitive, use SSH from an app or a terminal.</p>
+</dialog>
+
 <dialog class="cfmdlg" id="powdlg" aria-labelledby="powtitle" aria-describedby="powwhy">
   <form method="dialog">
     <h3 class="lg" id="powtitle"></h3>
@@ -642,6 +684,8 @@ const ICONS = {
   timed: '<circle cx="8" cy="8" r="6"/><path d="M8 4.5V8h3"/>',
   power: '<path d="M8 2v6"/><path d="M4.6 4.3a5.2 5.2 0 1 0 6.8 0"/>',
   restart: '<path d="M13 8a5 5 0 1 1-1.5-3.6"/><path d="M13 2.5v3h-3"/>',
+  term: '<rect x="1.5" y="2.5" width="13" height="11" rx="1.5"/><path d="M4.5 6.5l2 1.5-2 1.5M8 10h3.5"/>',
+  copy: '<rect x="5.5" y="5.5" width="8" height="8" rx="1.2"/><path d="M10.5 3.5V3a1 1 0 0 0-1-1H3a1 1 0 0 0-1 1v6.5a1 1 0 0 0 1 1h.5"/>',
 };
 function icon(name) {
   const s = document.createElementNS("http://www.w3.org/2000/svg", "svg");
@@ -1287,11 +1331,103 @@ function renderPower() {
     ? h("button", { class: "key sm act", id: "pwhost", type: "button", disabled: off, onclick: () => powerAct("dmrhost") }, icon("restart"), S.restart ? "Restarting…" : "Restart")
     : null);
   // shut down is icon-only to fit the Pi's name line; its label is in aria-label, the tooltip and the confirmation
-  $("power").classList.toggle("inl", S.can_power);
-  fill($("power"), S.can_power
-    ? [h("button", { class: "key sm act", id: "pwreboot", type: "button", disabled: off, onclick: () => powerAct("reboot") }, icon("restart"), "Restart"),
-       h("button", { class: "key sm act warn sq", id: "pwoff", type: "button", disabled: off, "aria-label": "Shut down", title: "Shut down", onclick: () => powerAct("poweroff") }, icon("power"))]
-    : h("p", { class: "none" }, "Restarts and shut down need the dmrdash-power helper; rerun install.sh."));
+  fill($("power"), h("button", { class: "key sm act", id: "pwssh", type: "button", "aria-expanded": String(!!ui.ssh), "aria-controls": "pibox",
+      onclick: () => { ui.ssh = !ui.ssh; ui.copied = false; renderPower(); } }, icon("term"), "SSH"),
+    S.can_power
+      ? [h("button", { class: "key sm act", id: "pwreboot", type: "button", disabled: off, onclick: () => powerAct("reboot") }, icon("restart"), "Restart"),
+         h("button", { class: "key sm act warn sq", id: "pwoff", type: "button", disabled: off, "aria-label": "Shut down", title: "Shut down", onclick: () => powerAct("poweroff") }, icon("power"))]
+      : null);
+  // the panel isn't rebuilt by polls while the command has focus, so a selection in it survives
+  if (document.activeElement && document.activeElement.id === "sshcmd") return;
+  fill($("pibox"), S.can_power ? null : h("p", { class: "none" }, "Restarts and shut down need the dmrdash-power helper; rerun install.sh."),
+    ui.ssh ? sshPanel() : null);
+}
+
+/* ---------------- SSH: the command, an ssh:// link for an SSH app, and the console ---------------- */
+// the user from "ssh_user", at whatever name or address this page was opened with
+const sshTarget = () => (S.ssh && S.ssh.user ? S.ssh.user + "@" : "") + location.hostname;
+function sshPanel() {
+  const field = h("input", { id: "sshcmd", type: "text", readonly: true, value: "ssh " + sshTarget(), "aria-label": "SSH command", spellcheck: "false",
+    onfocus: (e) => e.target.select() });
+  return [h("div", { class: "cmd" }, field, h("button", { class: "key sm act", id: "sshcopy", type: "button", onclick: () => copyCmd(field) }, icon("copy"), ui.copied ? "Copied" : "Copy")),
+    h("div", { class: "sshkeys" },
+      h("a", { class: "key sm act", id: "sshapp", href: "ssh://" + sshTarget() }, "Open in SSH app"),
+      S.ssh && S.ssh.shell ? h("button", { class: "key sm act", id: "shopen", type: "button", disabled: !!ui.busy, onclick: openShell }, icon("term"), "Console") : null)];
+}
+async function copyCmd(field) {
+  // the Clipboard API needs HTTPS, which the dashboard isn't; select-and-copy works over plain HTTP
+  try { await navigator.clipboard.writeText(field.value); }
+  catch (e) { field.focus(); field.select(); document.execCommand("copy"); }
+  ui.copied = true; field.blur(); renderPower();
+  setTimeout(() => { ui.copied = false; if (S) renderPower(); }, 2000);
+}
+
+/* The console: xterm.js (vendored, loaded on first use) over a WebSocket to `ssh <ssh_user>@localhost` on the Pi.
+   A one-time ticket from the usual POST path carries the PIN; the Pi's sshd asks for the password itself. */
+let XT = null;
+const SH = { term: null, fit: null, ws: null, ctrl: false };
+async function loadXterm() {
+  if (XT) return XT;
+  if (!$("xtcss")) document.head.append(h("link", { id: "xtcss", rel: "stylesheet", href: "/vendor/xterm.css" }));
+  const [{ Terminal }, { FitAddon }] = await Promise.all([import("/vendor/xterm.mjs"), import("/vendor/addon-fit.mjs")]);
+  return (XT = { Terminal, FitAddon });
+}
+function shState(word, lamp) { fill($("shstate"), h("i", { class: "lamp " + lamp }), word); }
+function shSend(data) {
+  if (!SH.ws || SH.ws.readyState !== WebSocket.OPEN) return;
+  // the on-screen Ctrl key turns the next letter into its control character
+  if (SH.ctrl && data.length === 1) {
+    const c = data.toUpperCase().charCodeAt(0);
+    if (c >= 64 && c <= 95) data = String.fromCharCode(c - 64);
+    SH.ctrl = false; $("tkeys").querySelector('[data-seq="ctrl"]').setAttribute("aria-pressed", "false");
+  }
+  SH.ws.send(new TextEncoder().encode(data));
+}
+async function openShell() {
+  if (ui.busy) return;
+  ui.menu[5] = false; ui.ssh = false; syncInfo(); render(true);
+  try { await loadXterm(); }
+  catch (e) { say(0, "Couldn't load the console's terminal from the Pi", true); return; }
+  const d = $("shdlg");
+  $("shwho").textContent = sshTarget();
+  d.showModal();
+  if (!SH.term) {
+    SH.term = new XT.Terminal({ fontFamily: getComputedStyle(document.body).getPropertyValue("--mono"), fontSize: innerWidth <= 820 ? 12 : 13,
+      cursorBlink: true, scrollback: 2000, theme: { background: "#121416", foreground: "#d4d9de", cursor: "#eef1f3",
+        selectionBackground: "#b3bac2", selectionForeground: "#1d2023" } });
+    SH.fit = new XT.FitAddon();
+    SH.term.loadAddon(SH.fit);
+    SH.term.open($("term"));
+    SH.term.onData(shSend);
+    SH.term.onResize(({ cols, rows }) => { if (SH.ws && SH.ws.readyState === WebSocket.OPEN) SH.ws.send(JSON.stringify({ cols, rows })); });
+  } else SH.term.reset();
+  SH.fit.fit();
+  SH.term.focus();
+  shellConnect();
+}
+async function shellConnect() {
+  shState("Connecting", "warn"); $("shagain").hidden = true;
+  let ticket;
+  try {
+    const { ok, status, j } = await post({ action: "shellTicket" });
+    if (!ok) throw new Error(j.error || "Failed (HTTP " + status + ")");
+    ticket = j.ticket;
+  } catch (e) { SH.term.write("\x1b[31m" + (e.message || "Can't reach the dashboard on the Pi") + "\x1b[0m\r\n"); return shEnded(); }
+  if (!$("shdlg").open) return;  // closed while the PIN was asked
+  const ws = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/api/shell?t=" + encodeURIComponent(ticket)
+    + "&cols=" + SH.term.cols + "&rows=" + SH.term.rows);
+  ws.binaryType = "arraybuffer";
+  SH.ws = ws;
+  ws.onopen = () => { shState("Connected", "on"); SH.term.focus(); };
+  ws.onmessage = (e) => { if (typeof e.data !== "string") SH.term.write(new Uint8Array(e.data)); };
+  ws.onclose = () => { if (SH.ws !== ws) return; SH.ws = null; SH.term.write("\r\n\x1b[2m[session ended]\x1b[0m\r\n"); shEnded(); };
+}
+function shEnded() { shState("Ended", "off"); $("shagain").hidden = false; }
+function shellClose() {
+  const ws = SH.ws;
+  SH.ws = null;
+  if (ws) ws.close();
+  if ($("shdlg").open) $("shdlg").close();
 }
 function askPower(what) {
   if (what === "dmrhost") return askConfirm("Restart DMRHost?",
@@ -1989,7 +2125,24 @@ let dlgDown = false;
 $("tgdlg").addEventListener("pointerdown", (e) => { dlgDown = e.target === $("tgdlg"); });
 $("tgdlg").addEventListener("click", (e) => { if (dlgDown && e.target === $("tgdlg")) $("tgdlg").close(); dlgDown = false; });
 $("ibtn").prepend(icon("info"));
-$("hbtn").addEventListener("click", () => { ui.menu[5] = !ui.menu[5]; syncInfo(); });
+$("hbtn").addEventListener("click", () => { ui.menu[5] = !ui.menu[5]; if (!ui.menu[5]) ui.ssh = false; syncInfo(); if (S) renderPower(); });
+$("shclose").prepend(icon("x"));
+$("shclose").addEventListener("click", () => { shellClose(); focusId("hbtn"); });
+$("shagain").addEventListener("click", () => { SH.term.reset(); SH.term.focus(); shellConnect(); });
+$("shdlg").addEventListener("cancel", (e) => e.preventDefault());
+$("shdlg").addEventListener("close", () => { if (SH.ws) shellClose(); });
+addEventListener("resize", () => { if ($("shdlg").open && SH.fit) SH.fit.fit(); });
+// the extra keys keep focus in the terminal, so a phone's keyboard stays up
+$("tkeys").addEventListener("pointerdown", (e) => { if (e.target.closest("button")) e.preventDefault(); });
+$("tkeys").addEventListener("click", (e) => {
+  const b = e.target.closest("button"); if (!b || !SH.term) return;
+  const k = b.dataset.seq;
+  if (k === "ctrl") { SH.ctrl = !SH.ctrl; b.setAttribute("aria-pressed", String(SH.ctrl)); }
+  else if (k === "esc") shSend("\x1b");
+  else if (k === "tab") shSend("\t");
+  else shSend((SH.term.modes.applicationCursorKeysMode ? "\x1bO" : "\x1b[") + k);  // full-screen programs want the other form
+  SH.term.focus();
+});
 $("ibtn").addEventListener("click", () => { ui.menu[3] = !ui.menu[3]; if (ui.menu[3]) ui.seenAt = ui.seenEv; syncInfo(); if (S) renderEvents(); });
 $("evclear").addEventListener("click", async () => {
   if (ui.busy) return;

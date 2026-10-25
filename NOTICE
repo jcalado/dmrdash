@@ -11,7 +11,12 @@ index.html embeds subsets of two fonts, each under the SIL Open Font License 1.1
   Reserved Font Name. Copyright (c) 2020 keshikan (https://www.keshikan.net).
   Licence: licenses/DSEG-OFL.txt
 
-The fonts stay under the OFL; the MIT licence covers the rest of the code.
+vendor/ holds xterm.js 6.0.0 (xterm.mjs, xterm.css) and its fit addon 0.11.0
+(addon-fit.mjs), loaded only when the console opens. MIT licence,
+Copyright (c) 2017-2019, The xterm.js authors (https://github.com/xtermjs/xterm.js)
+and earlier holders. Licence: licenses/xterm-LICENSE.txt
+
+The fonts stay under the OFL; dmrdash's MIT licence covers the rest of the code.
 
 Not affiliated with BrandMeister.
 DMR ID names come from the RadioID database file installed with DMRHost.
