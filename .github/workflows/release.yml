@@ -8,7 +8,8 @@ permissions:
 
 jobs:
   release:
-    runs-on: ubuntu-latest
+    # the runner CI tests on
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
       - name: Tag matches VERSION in dmrdash.py
@@ -41,7 +42,7 @@ jobs:
   # After the release, so the repo never offers a version without one.
   apt:
     needs: release
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     concurrency: gh-pages
     steps:
       - uses: actions/checkout@v7

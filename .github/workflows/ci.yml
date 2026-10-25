@@ -7,7 +7,8 @@ on:
 
 jobs:
   server:
-    runs-on: ubuntu-latest
+    # 24.04, not latest: 26.04 has no Python 3.9 for setup-python, nor a Chromium Playwright supports
+    runs-on: ubuntu-24.04
     strategy:
       matrix:
         python: ["3.9", "3.13"]
@@ -34,7 +35,7 @@ jobs:
       - run: sh tests/apt-e2e.sh "$GITHUB_WORKSPACE"
 
   browser:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
