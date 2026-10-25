@@ -20,3 +20,25 @@ Description: LAN dashboard for BrandMeister DMRHost hotspots
  A terminal view, dmrdash-tui, shows the same over SSH.
  Python standard library only; nothing is written to the SD card in normal use.
 
+Package: dmrdash
+Architecture: all
+Version: 1.7.0
+Priority: optional
+Section: hamradio
+Maintainer: Joel Calado <joelcalado@gmail.com>
+Depends: python3 (>= 3.9), systemd
+Filename: pool/main/d/dmrdash/dmrdash_1.7.0_all.deb
+Size: 181608
+MD5sum: 9bd98fdeae8afd07b6c37b15385ebdc4
+SHA1: a4bb56149e5d8138b59a927e0fa6ca4f186720ab
+SHA256: 2af52d19e0cae89eca7074dd89968703d1493e5940a0a9fcc217a5c905580967
+SHA512: f6241f272610f82b2bf0b782b08d927235de5804b39975839e40ef5b7df0250a6705398a1e4bda9c61924c5b4860f4dc069db7f923eb36c24c7a53b0cc924e25
+Homepage: https://github.com/jcalado/dmrdash
+Description: LAN dashboard for BrandMeister DMRHost hotspots
+ Live calls per timeslot from the DMRHost journal, last heard, a RAM-only
+ live log, static talkgroup management through the BrandMeister API, and an
+ RF BER trend with RX offset tuning, BrandMeister master switching, an MMDVM.ini editor,
+ restart / shut down of the Pi, and updates from its own apt repo.
+ A terminal view, dmrdash-tui, shows the same over SSH.
+ Python standard library only; nothing is written to the SD card in normal use.
+

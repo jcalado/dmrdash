@@ -1,32 +1,32 @@
 Architectures: all amd64 arm64 armhf i386
 Codename: stable
 Components: main
-Date: Sun, 25 Oct 2026 19:50:51 +0000
+Date: Sun, 25 Oct 2026 21:19:48 +0000
 Description: dmrdash, a LAN dashboard for BrandMeister DMRHost hotspots
 Label: dmrdash
 Origin: dmrdash
 Suite: stable
 MD5Sum:
- 6c94fc40e2167c2e74878dac86094ecb             1060 main/binary-all/Packages
- 6c94fc40e2167c2e74878dac86094ecb             1060 main/binary-amd64/Packages
- 6c94fc40e2167c2e74878dac86094ecb             1060 main/binary-arm64/Packages
- 6c94fc40e2167c2e74878dac86094ecb             1060 main/binary-armhf/Packages
- 6c94fc40e2167c2e74878dac86094ecb             1060 main/binary-i386/Packages
+ 77445eb8d00029e05d43b8673127368d             2141 main/binary-all/Packages
+ 77445eb8d00029e05d43b8673127368d             2141 main/binary-amd64/Packages
+ 77445eb8d00029e05d43b8673127368d             2141 main/binary-arm64/Packages
+ 77445eb8d00029e05d43b8673127368d             2141 main/binary-armhf/Packages
+ 77445eb8d00029e05d43b8673127368d             2141 main/binary-i386/Packages
 SHA1:
- ec35551005626f7a6b4dfd3f79b16c99145439e0             1060 main/binary-all/Packages
- ec35551005626f7a6b4dfd3f79b16c99145439e0             1060 main/binary-amd64/Packages
- ec35551005626f7a6b4dfd3f79b16c99145439e0             1060 main/binary-arm64/Packages
- ec35551005626f7a6b4dfd3f79b16c99145439e0             1060 main/binary-armhf/Packages
- ec35551005626f7a6b4dfd3f79b16c99145439e0             1060 main/binary-i386/Packages
+ 8a78a1cbdb0c0dfcc5879b7fb23e5c5727b2a405             2141 main/binary-all/Packages
+ 8a78a1cbdb0c0dfcc5879b7fb23e5c5727b2a405             2141 main/binary-amd64/Packages
+ 8a78a1cbdb0c0dfcc5879b7fb23e5c5727b2a405             2141 main/binary-arm64/Packages
+ 8a78a1cbdb0c0dfcc5879b7fb23e5c5727b2a405             2141 main/binary-armhf/Packages
+ 8a78a1cbdb0c0dfcc5879b7fb23e5c5727b2a405             2141 main/binary-i386/Packages
 SHA256:
- 78267b9498f3f2bdae38a6aa685f8055e14ef7d1f37314917b05c741c8c91202             1060 main/binary-all/Packages
- 78267b9498f3f2bdae38a6aa685f8055e14ef7d1f37314917b05c741c8c91202             1060 main/binary-amd64/Packages
- 78267b9498f3f2bdae38a6aa685f8055e14ef7d1f37314917b05c741c8c91202             1060 main/binary-arm64/Packages
- 78267b9498f3f2bdae38a6aa685f8055e14ef7d1f37314917b05c741c8c91202             1060 main/binary-armhf/Packages
- 78267b9498f3f2bdae38a6aa685f8055e14ef7d1f37314917b05c741c8c91202             1060 main/binary-i386/Packages
+ fd5c4fa367ab3488f29ce8fcd5d5e56e9df5fa3cd4c0e4bacd7b9afed39b1716             2141 main/binary-all/Packages
+ fd5c4fa367ab3488f29ce8fcd5d5e56e9df5fa3cd4c0e4bacd7b9afed39b1716             2141 main/binary-amd64/Packages
+ fd5c4fa367ab3488f29ce8fcd5d5e56e9df5fa3cd4c0e4bacd7b9afed39b1716             2141 main/binary-arm64/Packages
+ fd5c4fa367ab3488f29ce8fcd5d5e56e9df5fa3cd4c0e4bacd7b9afed39b1716             2141 main/binary-armhf/Packages
+ fd5c4fa367ab3488f29ce8fcd5d5e56e9df5fa3cd4c0e4bacd7b9afed39b1716             2141 main/binary-i386/Packages
 SHA512:
- 6ac9a183214426d0df28db0775ff7822abc6eb7fb23a371fda96a98d81ca2b9cc026f74058ecd1d1d1a3d1056460813675128666e0584872048ac0c3cf431fd4             1060 main/binary-all/Packages
- 6ac9a183214426d0df28db0775ff7822abc6eb7fb23a371fda96a98d81ca2b9cc026f74058ecd1d1d1a3d1056460813675128666e0584872048ac0c3cf431fd4             1060 main/binary-amd64/Packages
- 6ac9a183214426d0df28db0775ff7822abc6eb7fb23a371fda96a98d81ca2b9cc026f74058ecd1d1d1a3d1056460813675128666e0584872048ac0c3cf431fd4             1060 main/binary-arm64/Packages
- 6ac9a183214426d0df28db0775ff7822abc6eb7fb23a371fda96a98d81ca2b9cc026f74058ecd1d1d1a3d1056460813675128666e0584872048ac0c3cf431fd4             1060 main/binary-armhf/Packages
- 6ac9a183214426d0df28db0775ff7822abc6eb7fb23a371fda96a98d81ca2b9cc026f74058ecd1d1d1a3d1056460813675128666e0584872048ac0c3cf431fd4             1060 main/binary-i386/Packages
+ 446126e720750e09e4ec9d1d96dc3b8444cc9503324f92273a8c0a4fa95771c4a7ea9d8f2cfc29fbf7d5707f66b9316e38948e94a0c272e21f1714bfdb1e8aa4             2141 main/binary-all/Packages
+ 446126e720750e09e4ec9d1d96dc3b8444cc9503324f92273a8c0a4fa95771c4a7ea9d8f2cfc29fbf7d5707f66b9316e38948e94a0c272e21f1714bfdb1e8aa4             2141 main/binary-amd64/Packages
+ 446126e720750e09e4ec9d1d96dc3b8444cc9503324f92273a8c0a4fa95771c4a7ea9d8f2cfc29fbf7d5707f66b9316e38948e94a0c272e21f1714bfdb1e8aa4             2141 main/binary-arm64/Packages
+ 446126e720750e09e4ec9d1d96dc3b8444cc9503324f92273a8c0a4fa95771c4a7ea9d8f2cfc29fbf7d5707f66b9316e38948e94a0c272e21f1714bfdb1e8aa4             2141 main/binary-armhf/Packages
+ 446126e720750e09e4ec9d1d96dc3b8444cc9503324f92273a8c0a4fa95771c4a7ea9d8f2cfc29fbf7d5707f66b9316e38948e94a0c272e21f1714bfdb1e8aa4             2141 main/binary-i386/Packages
