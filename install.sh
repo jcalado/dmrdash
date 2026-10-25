@@ -180,7 +180,8 @@ else
   systemctl daemon-reload
   systemctl enable dmrdash >/dev/null 2>&1
   systemctl restart dmrdash
-  systemctl enable --now dmrdash-rxoffset.path dmrdash-master.path dmrdash-power.path dmrdash-rflevel.path dmrdash-config.path >/dev/null 2>&1
+  systemctl enable dmrdash-rxoffset.path dmrdash-master.path dmrdash-power.path dmrdash-rflevel.path dmrdash-config.path >/dev/null 2>&1
+  systemctl restart dmrdash-rxoffset.path dmrdash-master.path dmrdash-power.path dmrdash-rflevel.path dmrdash-config.path
 fi
 
 HOSTUNIT=$(conf unit)

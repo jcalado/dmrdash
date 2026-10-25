@@ -2,7 +2,9 @@
 Description=Watch for MMDVM.ini edits from the DMRHost dashboard
 
 [Path]
-PathChanged=/var/lib/dmrdash/config.request
+# PathExists, not PathChanged: a request written while config.py is still busy with the last one is picked up
+# when it finishes (systemd checks again then). config.py removes each request as it reads it.
+PathExists=/var/lib/dmrdash/config.request
 Unit=dmrdash-config.service
 
 [Install]

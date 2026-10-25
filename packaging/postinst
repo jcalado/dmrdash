@@ -33,7 +33,8 @@ if [ "$1" = configure ]; then
   if [ -d /run/systemd/system ]; then
     systemctl daemon-reload
     systemctl restart dmrdash
+    # restarted, not just started, so a path unit that changed watches the new way
     # shellcheck disable=SC2086
-    systemctl start $PATHS
+    systemctl restart $PATHS
   fi
 fi

@@ -13,8 +13,8 @@ opens it itself. The request is JSON, one of:
 "apply" takes the edited text in that same masked form: it applies only to the exact file it was made against,
 only when every line is blank, a comment, a [section] or key=value, and each mask goes back to the password the
 file has. The file as it was is kept beside it as MMDVM.ini.dmrdash-prev, and "restore" swaps the two back.
-A request older than a minute is ignored, and the request is emptied once read, so a password typed on the
-page doesn't stay on the SD card.
+A request older than a minute is ignored. Each request is removed as soon as it is read, so a password typed on
+the page doesn't stay on the SD card, and the path unit (PathExists) starts this again only for a new one.
 
 How a change went is written to /var/lib/dmrdash/config.status, which the dashboard reads back.
 
@@ -72,13 +72,15 @@ def fail(msg):
     sys.exit(1)
 
 
-def read_request():
-    """The checked request, or None when it is empty (as this helper leaves it)."""
+def take_request():
+    """The request's bytes. It is removed whatever it holds: left there, the path unit would start this again and again."""
     try:
-        fd = os.open(REQUEST, os.O_RDWR | os.O_NOFOLLOW | os.O_NONBLOCK)
+        fd = os.open(REQUEST, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
     except OSError as e:
+        drop_request()
         fail(f"can't open the request: {e.strerror}")
     try:
+        drop_request()
         st = os.fstat(fd)
         if not stat.S_ISREG(st.st_mode) or st.st_size > MAX_SIZE:
             fail("the request is not a regular file under 512 KiB")
@@ -88,10 +90,23 @@ def read_request():
             if not chunk:
                 break
             raw += chunk
-        if raw.strip():
-            os.ftruncate(fd, 0)
+        return raw
     finally:
         os.close(fd)
+
+
+def drop_request():
+    try:
+        os.unlink(REQUEST)
+    except OSError:
+        pass
+
+
+def read_request():
+    """The checked request, or None when there's none or it is empty."""
+    if not os.path.lexists(REQUEST):
+        return None
+    raw = take_request()
     if not raw.strip():
         return None
     try:
@@ -239,7 +254,7 @@ def main():
         fail("refused: odd unit name in " + CONF)
     req = read_request()
     if req is None:
-        return  # emptied after the last request, which wakes this up once more
+        return
     if req["op"] == "read":
         return view(ini)
     digest = (apply if req["op"] == "apply" else restore)(ini, req)

@@ -538,7 +538,8 @@ class ServerTest(unittest.TestCase):
     def helper_runs(self, cfg, ini, running=True):
         """config.py takes the request and reports done; DMRHost logs that it's running again."""
         req = cfg.read_request()
-        self.assertIsNone(cfg.read_request())  # it empties the request once read
+        self.assertFalse(os.path.lexists(cfg.REQUEST))  # removed once read, so the path unit doesn't start it again
+        self.assertIsNone(cfg.read_request())
         digest = (cfg.apply if req["op"] == "apply" else cfg.restore)(ini, req)
         cfg.write_status(state="done", op=req["op"], hash=digest)
         if running:
@@ -572,8 +573,7 @@ class ServerTest(unittest.TestCase):
         status, data = write(j["text"], "0" * 64)
         self.assertEqual((status, json.loads(data)["stale"]), (400, True))
         self.assertEqual(write(j["text"])[0], 400)  # nothing changed
-        with open(dmrdash.CONFIG_PATH) as f:
-            self.assertEqual(f.read(), "")  # refused writes never reach config.py (reads leave it emptied)
+        self.assertFalse(os.path.lexists(dmrdash.CONFIG_PATH))  # refused writes never reach config.py
         self.assertIsNone(dmrdash.CONFIG["id"])
 
         edited = j["text"].replace("Timeout=180", "Timeout=240").replace("RXOffset=-350", "# tuned\nRXOffset=-400")
@@ -640,6 +640,7 @@ class ServerTest(unittest.TestCase):
             ask(**bad)
             with self.assertRaises(SystemExit, msg=str(bad)[:60]):
                 cfg.read_request()
+            self.assertFalse(os.path.lexists(cfg.REQUEST))  # refused, and gone: the path unit won't loop on it
         ask(base="0" * 64)
         with self.assertRaises(SystemExit):
             cfg.apply(ini, cfg.read_request())  # made against another file

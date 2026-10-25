@@ -1211,9 +1211,12 @@ class StaleError(BMError):
 def config_request(req):
     """Under LOCK: hand a request to config.py. Its id."""
     req.update(id=secrets.token_hex(8), ts=time.time())
+    tmp = CONFIG_PATH + ".tmp"
     try:
-        with open(os.open(CONFIG_PATH, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o640), "w") as f:
+        # in one step, as config.py's path unit starts it as soon as the request exists
+        with open(os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o640), "w") as f:
             json.dump(req, f)
+        os.replace(tmp, CONFIG_PATH)
     except OSError as e:
         raise BMError(f"Can't write the MMDVM.ini request on the Pi: {e.strerror or e}")
     return req["id"]

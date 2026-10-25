@@ -1,6 +1,11 @@
 [Unit]
 Description=Apply an MMDVM.ini edit requested by the DMRHost dashboard
-# config.py applies only line changes made against the exact file it finds, keeps the old file beside it, and restarts DMRHost.
+# config.py reads MMDVM.ini with its passwords masked, or applies an edit made against the exact file it finds, keeps the
+# old file beside it, and restarts DMRHost.
+# Opening the editor and writing are several quick requests; systemd's default (5 starts in 10 s) would trip on them and
+# leave the path unit failed. Each request is removed as it is read, so this only stops a runaway, within a minute.
+StartLimitIntervalSec=60
+StartLimitBurst=60
 
 [Service]
 Type=oneshot
