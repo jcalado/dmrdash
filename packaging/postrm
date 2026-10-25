@@ -9,4 +9,4 @@ if [ "$1" = purge ]; then
   rm -rf /var/lib/dmrdash
   userdel dmrdash >/dev/null 2>&1 || true
 fi
-[ -d /run/systemd/system ] && systemctl daemon-reload >/dev/null 2>&1 || true
+if [ -d /run/systemd/system ]; then systemctl daemon-reload >/dev/null 2>&1 || true; fi
