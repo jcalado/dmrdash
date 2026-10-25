@@ -50,8 +50,8 @@ try {
   await page.click("#ibtn");
   const kept = await page.evaluate(() => sessionStorage.getItem("dmrdash.pin"));
   if (kept !== "4321") fail("PIN not kept for the tab");
-  const dash = await page.textContent("#station");
-  if (!/dmrdash \d+\.\d+\.\d+ · PIN on/.test(dash)) fail("station details lack the version: " + dash);
+  const dash = await page.textContent("#stfoot");
+  if (!/dmrdash \d+\.\d+\.\d+ · PIN on/.test(dash)) fail("station footer lacks the version: " + dash);
   if (!process.exitCode) console.log("smoke ok");
 } catch (e) {
   fail(e.message);

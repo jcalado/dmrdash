@@ -59,20 +59,23 @@ h2.lg { margin: 0; }
 .hbtn[aria-expanded="true"] svg.ic { transform: rotate(180deg); }
 @media (prefers-reduced-motion: reduce) { .hbtn svg.ic { transition: none; } }
 /* opens from the lamp: left-aligned on a phone, where the lamp wraps under the callsign */
-.health-pop { right: auto; left: 0; width: min(380px, calc(100vw - 32px)); max-height: calc(100vh - 110px); overflow-y: auto; }
+.health-pop { right: auto; left: 0; width: min(380px, calc(100vw - 32px)); max-height: calc(100vh - 110px); overflow-y: auto; padding: 14px 16px 2px; }
+.health-pop h3 { margin: 0; }
 @media (min-width: 821px) { .health-pop { left: auto; right: 0; } }  /* the lamp sits right of centre, so the popover hangs leftward */
 /* each part of the hotspot, with the control that acts on it: an inline key on the name line, or a row of its own under the detail */
-.hrow { display: grid; grid-template-columns: 9px 9ch minmax(0, 1fr) auto; gap: 4px 10px; align-items: center; padding: 8px 4px; }
+/* three beats per row: name and state, the detail line, then the control 9px below, so it reads as the row's own */
+.hrow { display: grid; grid-template-columns: 9px minmax(0, 1fr) auto; column-gap: 12px; row-gap: 3px; align-items: center; padding: 12px 0; }
 .hrow + .hrow { border-top: 1px solid var(--row); }
-.hrow .nm { font-weight: 600; font-size: 13px; }
-.hrow .st { font-weight: 600; font-size: 13px; color: var(--legend); }
-.hrow.warn .st { color: var(--busy); } .hrow.fail .st { color: var(--fail-text); }
-.hrow .dt { grid-column: 2 / -1; grid-row: 2; font: 12px/1.3 var(--mono); color: var(--legend-dim); overflow-wrap: anywhere; }
-.hrow .act { grid-column: 2 / -1; grid-row: 3; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-width: 0; margin-top: 4px; }
-.hrow .act.inl { grid-column: 4; grid-row: 1; margin: -4px 0; }
-.hrow .act:empty { display: none; }
-.hrow .act .none { margin: 0; }
-.act .pending { display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--busy); }
+.hrow .hd { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; min-width: 0; }
+.hrow .nm { font-weight: 600; font-size: 14px; white-space: nowrap; }
+.hrow .st { font-size: 13px; color: var(--legend); }
+.hrow.warn .st { color: var(--busy); font-weight: 600; } .hrow.fail .st { color: var(--fail-text); font-weight: 600; }
+.hrow .dt { grid-column: 2; grid-row: 2; font: 12px/1.35 var(--mono); color: var(--legend-dim); overflow-wrap: anywhere; }
+.hrow .hctl { grid-column: 2 / -1; grid-row: 3; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-width: 0; margin-top: 9px; }
+.hrow .hctl.inl { grid-column: 3; grid-row: 1 / span 2; flex-wrap: nowrap; margin: 0; }
+.hrow .hctl:empty { display: none; }
+.hrow .hctl .none { margin: 0; }
+.hctl .pending { display: inline-flex; flex-basis: 100%; align-items: center; gap: 7px; font-size: 12.5px; color: var(--busy); }
 /* local time over UTC, one readout */
 .clock { display: inline-grid; justify-items: end; gap: 4px; font-family: var(--mono); font-variant-numeric: tabular-nums; }
 .clock .l { font: 600 14px/1 var(--mono); color: var(--white); }
@@ -149,14 +152,28 @@ h2.lg { margin: 0; }
 .pop .edit-btn { width: 100%; justify-content: center; margin-top: 8px; }
 /* presets (header) */
 .presets, .info, .health { margin-left: 0; }
-.info-pop { width: min(380px, calc(100vw - 32px)); max-height: calc(100vh - 110px); overflow-y: auto; }
-.info-pop h3 + dl, .info-pop h3 + .ev { margin-top: 4px; }
-.info-pop dl, .info-pop .ev { padding: 0 4px 10px; }
-.info-pop .ev { margin-bottom: -6px; }
+/* read-only, in the Hotspot menu's spacing: a rig-style readout, then Events and Sections, then the build in a dim footer */
+.info-pop { width: min(380px, calc(100vw - 32px)); max-height: calc(100vh - 110px); overflow-y: auto; padding: 14px 16px 0; }
+.readout { display: grid; grid-template-columns: repeat(3, max-content); justify-content: space-between; gap: 6px 16px; padding: 2px 0 14px; }
+.readout .rd { display: grid; gap: 6px; }
+.readout b { font: 700 16px/1 var(--mono); letter-spacing: .01em; font-variant-numeric: tabular-nums; }
+.readout b small { font: 500 12px/1 var(--mono); color: var(--legend-dim); margin-left: 4px; }
+.readout .ln { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; margin-top: 8px; padding-top: 10px; border-top: 1px solid var(--row); font-size: 13px; color: var(--legend); }
+.iblk { padding: 14px 0; border-top: 1px solid var(--row); }
+.iblk h3, .iblk .evhead { margin: 0 0 10px; }
+.info-pop .ev { padding: 0; }
+.info-pop .ev li { padding: 7px 0; }
+.info-pop .ev li:first-child { padding-top: 0; border-top: 0; }
+/* warnings that are new since the popover was last opened: an amber dot in a gutter, counted in the heading */
+.info-pop .ev.hasnew { padding-left: 12px; }
+.info-pop .ev li.nw time::before { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--busy); margin: 0 6px 1px -12px; }
+#evtitle .n { font: 600 11px/1 var(--mono); letter-spacing: 0; text-transform: none; color: var(--panel); background: var(--busy); border-radius: 3px; padding: 2px 4px; margin-left: 6px; vertical-align: 1px; }
+.ifoot { margin: 0 -16px; padding: 10px 16px; border-top: 1px solid var(--rule); background: var(--panel-2); border-radius: 0 0 7px 7px;
+  display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; font: 12px/1.35 var(--mono); color: var(--legend-dim); }
 /* which of Last heard, RF BER and Live log this browser shows */
-.info-pop .secs { list-style: none; margin: 2px 0 10px; padding: 0 4px; }
+.info-pop .secs { list-style: none; margin: 0; padding: 0; }
 .secs li + li { border-top: 1px solid var(--row); }
-.secs .switch { width: 100%; justify-content: space-between; min-height: 34px; padding: 0; font: 13px/1.2 var(--sans); letter-spacing: 0; text-transform: none; color: var(--legend); }
+.secs .switch { width: 100%; justify-content: space-between; min-height: 36px; padding: 0; font: 13px/1.2 var(--sans); letter-spacing: 0; text-transform: none; color: var(--legend); }
 .secs .switch[aria-checked="true"] { color: var(--white); }
 .allhidden { margin: 0; padding: 14px 4px; color: var(--legend-dim); font-size: 13px; }
 .evhead { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
@@ -165,13 +182,14 @@ h2.lg { margin: 0; }
 .evhead .link:hover:not(:disabled) { color: var(--white); text-decoration-color: var(--legend); }
 .evhead .link:disabled { opacity: .45; cursor: default; text-decoration: none; }
 /* the BrandMeister master DMRHost logs in to, under the BM row */
-.master select { flex: 1 1 150px; min-width: 0; height: 34px; border-radius: 6px; border: 1px solid var(--legend); background: var(--panel-2); color: var(--white); font: 13px/1 var(--sans); padding: 0 8px; }
+.master select { flex: 1 1 150px; min-width: 0; height: 30px; border-radius: 6px; border: 1px solid var(--legend); background: var(--panel-2); color: var(--white); font: 13px/1 var(--sans); padding: 0 8px; }
 .master select:disabled { opacity: .45; }
 /* RF power presets, under the Modem row: the radiogroup reads like the Rows selector, sized for a thumb */
-.rfpow .seg button { min-width: 44px; height: 30px; font: 600 12.5px/1 var(--mono); }
+.rfpow .seg { flex: 1; display: flex; }  /* spans the row, lining up with the master picker under it */
+.rfpow .seg button { flex: 1; min-width: 44px; height: 30px; font: 600 12.5px/1 var(--mono); }
 .rfpow .seg button:disabled { opacity: .45; cursor: default; }
 .rfpow .seg button:disabled:hover { color: var(--legend-dim); }
-.master input { flex: 0 0 8ch; width: 8ch; height: 34px; border-radius: 6px; border: 1px solid var(--legend); background: var(--panel-2); color: var(--white); font: 14px/1 var(--mono); padding: 0 8px; }
+.master input { flex: 0 0 8ch; width: 8ch; height: 30px; border-radius: 6px; border: 1px solid var(--legend); background: var(--panel-2); color: var(--white); font: 14px/1 var(--mono); padding: 0 8px; }
 /* live log: a RAM-only tail of the DMRHost journal */
 .livelog { padding-bottom: 0; overflow: hidden; }
 .livelog .logbar { gap: 6px 12px; }
@@ -527,10 +545,10 @@ dt { color: var(--legend-dim); } dd { margin: 0; overflow-wrap: anywhere; } dd.n
     <div class="more health" id="health" data-slot="5">
       <button class="hbtn" id="hbtn" type="button" aria-expanded="false" aria-controls="pop5"></button>
       <div class="pop down health-pop" id="pop5" hidden><h3 class="lg">Hotspot</h3>
-        <div class="hrow" id="hr0"><i class="lamp"></i><span class="nm"></span><span class="st"></span><div class="act inl" id="hostrow"></div><span class="dt"></span></div>
-        <div class="hrow" id="hr1"><i class="lamp"></i><span class="nm"></span><span class="st"></span><span class="dt"></span><div class="act" id="rfpow"></div></div>
-        <div class="hrow" id="hr2"><i class="lamp"></i><span class="nm"></span><span class="st"></span><span class="dt"></span><div class="act master" id="master"></div></div>
-        <div class="hrow" id="hr3"><i class="lamp"></i><span class="nm">Pi</span><span class="st"></span><div class="act inl" id="power"></div><span class="dt"></span></div>
+        <div class="hrow" id="hr0"><i class="lamp"></i><div class="hd"><span class="nm"></span><span class="st"></span></div><div class="hctl inl" id="hostrow"></div><span class="dt"></span></div>
+        <div class="hrow" id="hr1"><i class="lamp"></i><div class="hd"><span class="nm"></span><span class="st"></span></div><span class="dt"></span><div class="hctl rfpow" id="rfpow"></div></div>
+        <div class="hrow" id="hr2"><i class="lamp"></i><div class="hd"><span class="nm"></span><span class="st"></span></div><span class="dt"></span><div class="hctl master" id="master"></div></div>
+        <div class="hrow" id="hr3"><i class="lamp"></i><div class="hd"><span class="nm">Pi</span><span class="st"></span></div><div class="hctl inl" id="power"></div><span class="dt"></span></div>
       </div>
     </div>
     <div class="clock" id="clock"></div>
@@ -538,9 +556,10 @@ dt { color: var(--legend-dim); } dd { margin: 0; overflow-wrap: anywhere; } dd.n
     <div class="more info" id="info" data-slot="3">
       <button class="key sm more-btn" id="ibtn" type="button" aria-expanded="false" aria-controls="pop3" aria-label="Station details and events" title="Station details and events"><span class="newdot" id="evdot" hidden></span></button>
       <div class="pop down info-pop" id="pop3" hidden>
-        <h3 class="lg">Station</h3><dl id="station"></dl>
-        <h3 class="lg">Sections</h3><ul class="secs" id="secs"></ul>
-        <div class="evhead"><h3 class="lg">Events</h3><button class="link" id="evclear" type="button">Clear</button></div><ul class="ev" id="events"></ul>
+        <div class="readout" id="station"></div>
+        <div class="iblk"><div class="evhead"><h3 class="lg" id="evtitle">Events</h3><button class="link" id="evclear" type="button">Clear</button></div><ul class="ev" id="events"></ul></div>
+        <div class="iblk"><h3 class="lg">Sections</h3><ul class="secs" id="secs"></ul></div>
+        <div class="ifoot" id="stfoot"></div>
       </div>
     </div>
   </header>
@@ -671,10 +690,10 @@ function health() {
   const since = (x) => x.since ? " · " + ago(x.since) : "";
   const leds = [
     ["DMRHost", host === "running" ? "on" : host === "starting" ? "warn" : "fail", host, (hostVersion() || "version unknown") + since(S.host)],
-    ["Modem", modem === "ok" ? "on" : modem === "opening" ? "warn" : "fail", modem, (modemName() || "no modem reported") + since(S.modem)],
+    ["Modem", modem === "ok" ? "on" : modem === "opening" ? "warn" : "fail", modem, (modemName() || "no modem reported") + (modem === "ok" ? "" : since(S.modem))],
     ["BM " + (curMaster() || "link"),
       net === "connected" ? "on" : (net === "connecting" || net === "unknown") ? "warn" : "fail", net,
-      (S.network.since ? "since " + hhmmss(S.network.since).slice(0, 5) + since(S.network) : "no news from DMRHost yet")],
+      (S.network.since ? "since " + hhmmss(S.network.since).slice(0, 5) + (net === "connected" ? "" : since(S.network)) : "no news from DMRHost yet")],
   ];
   let alarm = null;
   if (offline) alarm = ["Dashboard can't reach the Pi", "Last update " + ago(lastOk) + " ago. Showing the last known state."];
@@ -1205,16 +1224,17 @@ function renderLog(force) {
 }
 
 function renderStation() {
-  const d = S.bm.device || {};
-  const rows = [
-    ["Link", d.statusText ? d.statusText + (curMaster() ? " · master " + curMaster() : "") : (S.bm.error ? "BrandMeister API unreachable" : "…")],
-    ["RX / TX", d.rx ? (d.rx + " / " + d.tx + " MHz").replace(/\.0000/g, ".000") : "—"],
-    ["Colour code", d.colorcode != null ? d.colorcode : "—"],
-    ["Dashboard", "dmrdash " + (S.version || "") + (S.pin ? " · PIN on" : "")],
-    ["Last seen", d.last_seen ? new Date(d.last_seen.replace(" ", "T") + "Z").toLocaleTimeString([], { hourCycle: "h23" }) + " by BM" : "—"],
-  ];
-  const numeric = new Set(["RX / TX", "Colour code", "Last seen"]);
-  fill($("station"), rows.map(([k, v]) => [h("dt", {}, k), h("dd", { class: numeric.has(k) ? "num" : null }, String(v))]));
+  const d = S.bm.device || {}, net = S.network.status;
+  // read like a rig: RX, TX with its split when duplex, and the colour code, all in MHz as BrandMeister gives them
+  const split = d.rx && d.tx && Number(d.tx) !== Number(d.rx) ? (Number(d.tx) > Number(d.rx) ? "+" : "−") + Math.abs(Number(d.tx) - Number(d.rx)).toFixed(3) : null;
+  const rd = (k, v, sub) => h("div", { class: "rd" }, h("span", { class: "lg dim" }, k), h("b", {}, v, sub ? h("small", {}, sub) : null));
+  const lamp = net === "connected" ? "on" : (net === "connecting" || net === "unknown") ? "warn" : "fail";
+  fill($("station"), rd("RX", d.rx || "—"), rd("TX", d.tx || "—", split), rd("CC", d.colorcode != null ? String(d.colorcode) : "—"),
+    h("div", { class: "ln" }, h("i", { class: "lamp " + lamp }),
+      d.statusText ? d.statusText + (curMaster() ? " · master " + curMaster() : "") : (S.bm.error ? "BrandMeister API unreachable" : "…")));
+  // the build and BrandMeister's last sighting are for bug reports and doubts, so they sit in the footer
+  fill($("stfoot"), h("span", {}, "dmrdash " + (S.version || "") + (S.pin ? " · PIN on" : "")),
+    d.last_seen ? h("span", {}, "BM saw it " + new Date(d.last_seen.replace(" ", "T") + "Z").toLocaleTimeString([], { hourCycle: "h23" })) : null);
 }
 
 // Retry storms (one or two messages repeating every few seconds) collapse to one line each: an identical
@@ -1234,7 +1254,11 @@ function renderEvents() {
   const ev = S.events.slice();
   if (S.bm.error) ev.unshift({ ts: S.bm.updated || now(), level: "W", text: S.bm.error });
   const shown = collapseEvents(ev).slice(0, 10);
-  fill($("events"), shown.length ? shown.map((e) => h("li", {}, h("time", {}, hhmmss(e.ts)),
+  // marked new: the warnings the amber key dot was flagging when the popover opened, and any arriving while it's open
+  const isNew = (e) => "WEF".includes(e.level) && e.ts > ui.seenAt, fresh = shown.filter(isNew).length;
+  $("events").classList.toggle("hasnew", fresh > 0);
+  fill($("evtitle"), "Events", fresh ? h("span", { class: "n" }, fresh + " new") : null);
+  fill($("events"), shown.length ? shown.map((e) => h("li", { class: isNew(e) ? "nw" : null }, h("time", {}, hhmmss(e.ts)),
       h("span", { class: e.level }, e.text, e.n > 1 ? h("span", { class: "rep", title: e.n + " times from " + hhmmss(e.first) + " to " + hhmmss(e.ts) }, " ×" + e.n + " since " + hhmmss(e.first)) : null)))
     : h("li", {}, "Nothing to report."));
   $("evclear").disabled = !S.events.length || !!ui.busy;
@@ -1952,7 +1976,7 @@ $("berplot").addEventListener("pointerleave", (e) => { if (e.pointerType === "mo
 document.addEventListener("pointerdown", (e) => { if (!e.target.closest || !e.target.closest("#berplot")) berTip(-1); });
 let berRaf = 0;
 addEventListener("resize", () => { cancelAnimationFrame(berRaf); berRaf = requestAnimationFrame(() => { if (S) renderBer(); }); });
-ui.menu[3] = false; ui.menu[4] = false; ui.menu[5] = false; ui.seenEv = 0;
+ui.menu[3] = false; ui.menu[4] = false; ui.menu[5] = false; ui.seenEv = 0; ui.seenAt = 0;
 $("tgdlg").addEventListener("close", () => {
   const n = ui.dlg;
   endEdit(); ui.dlg = 0;
@@ -1966,7 +1990,7 @@ $("tgdlg").addEventListener("pointerdown", (e) => { dlgDown = e.target === $("tg
 $("tgdlg").addEventListener("click", (e) => { if (dlgDown && e.target === $("tgdlg")) $("tgdlg").close(); dlgDown = false; });
 $("ibtn").prepend(icon("info"));
 $("hbtn").addEventListener("click", () => { ui.menu[5] = !ui.menu[5]; syncInfo(); });
-$("ibtn").addEventListener("click", () => { ui.menu[3] = !ui.menu[3]; syncInfo(); if (S) renderEvents(); });
+$("ibtn").addEventListener("click", () => { ui.menu[3] = !ui.menu[3]; if (ui.menu[3]) ui.seenAt = ui.seenEv; syncInfo(); if (S) renderEvents(); });
 $("evclear").addEventListener("click", async () => {
   if (ui.busy) return;
   ui.busy = "clearEvents"; $("evclear").disabled = true;
