@@ -500,6 +500,162 @@ class ServerTest(unittest.TestCase):
         # refreshing only dmrdash's repo must not delete the other repos' lists
         self.assertIn("APT::Get::List-Cleanup=0", up.APT_UPDATE)
 
+    INI = ("[General]\r\nCallsign=CT7BLE\r\nId=268051301\r\nTimeout=180\r\n\r\n[Modem]\r\n# Valid values are uart, udp\r\n"
+           "Protocol=uart\r\nRXOffset=-350\r\nRFLevel=100\r\n\r\n[DMR]\r\nColorCode=1\r\n\r\n[DMR Network]\r\n"
+           "Address=2682.master.brandmeister.network\r\nPassword = s3cret\r\n")
+
+    def config_setup(self):
+        """A CRLF MMDVM.ini with a password, and config.py pointed at the test's request and status files."""
+        ini = os.path.join(TMP, "MMDVM-edit.ini")
+        with open(ini, "w", newline="") as f:
+            f.write(self.INI)
+        for p in (ini + ".dmrdash-prev", dmrdash.CONFIG_STATUS, dmrdash.CONFIG_PATH):
+            if os.path.exists(p):
+                os.remove(p)
+        dmrdash.CONF["mmdvm_ini"] = ini
+        spec = importlib.util.spec_from_file_location("config", os.path.join(ROOT, "config.py"))
+        cfg = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(cfg)
+        cfg.REQUEST, cfg.STATUS, cfg.VIEW = dmrdash.CONFIG_PATH, dmrdash.CONFIG_STATUS, dmrdash.CONFIG_VIEW
+
+        def kick():  # what the path unit does on the Pi, for the dashboard's read requests
+            req = cfg.read_request()
+            if req and req["op"] == "read":
+                cfg.view(ini)
+        dmrdash.CONFIG_KICK[0] = kick
+        self.addCleanup(lambda: (dmrdash.CONFIG.update(id=None, op=None, auto=False), dmrdash.CONFIG_LAST.clear(),
+                                 dmrdash.CONFIG_KICK.__setitem__(0, lambda: None)))
+        return ini, cfg
+
+    def config_read(self):
+        status, data = self.req("POST", "/api/bm", {"action": "configRead"}, {"X-Dmrdash-Pin": "4321"})
+        self.assertEqual(status, 200, data)
+        return json.loads(data)
+
+    def helper_runs(self, cfg, ini, running=True):
+        """config.py takes the request and reports done; DMRHost logs that it's running again."""
+        req = cfg.read_request()
+        self.assertIsNone(cfg.read_request())  # it empties the request once read
+        digest = (cfg.apply if req["op"] == "apply" else cfg.restore)(ini, req)
+        cfg.write_status(state="done", op=req["op"], hash=digest)
+        if running:
+            dmrdash.handle_line(dmrdash.time.time() + 1, "M", "DMRHost-20260101 is running")
+        with dmrdash.LOCK:
+            dmrdash.config_tick(dmrdash.time.time())
+        return req
+
+    def test_config_read_masks_passwords(self):
+        ini, cfg = self.config_setup()
+        self.assertEqual(self.req("POST", "/api/bm", {"action": "configRead"})[0], 401)  # the PIN applies
+        status, data = self.req("POST", "/api/bm", {"action": "configRead"}, {"X-Dmrdash-Pin": "4321"})
+        j = json.loads(data)
+        self.assertNotIn("s3cret", data.decode())
+        self.assertIn("\nPassword = " + dmrdash.MASK + "\n", j["text"])
+        self.assertNotIn("\r", j["text"])
+        with open(ini, "rb") as f:
+            self.assertEqual(j["base"], dmrdash.sha256(f.read()))
+        self.assertEqual(j["keys"]["DMR"]["ColorCode"]["max"], 15)
+
+    def test_config_write_undo(self):
+        pin = {"X-Dmrdash-Pin": "4321"}
+        ini, cfg = self.config_setup()
+        j = self.config_read()
+        write = lambda text, base=j["base"]: self.req("POST", "/api/bm", {"action": "configWrite", "text": text, "base": base}, pin)
+        status, data = write(j["text"].replace("ColorCode=1", "ColorCode=16"))
+        self.assertEqual((status, json.loads(data)["error"]), (400, "Line 13: A whole number from 0 to 15"))
+        status, data = write(j["text"].replace("Password = " + dmrdash.MASK, "Secret=" + dmrdash.MASK))
+        self.assertEqual(status, 400)  # a mask stands only for a password the file has
+        status, data = write(j["text"], "0" * 64)
+        self.assertEqual((status, json.loads(data)["stale"]), (400, True))
+        self.assertEqual(write(j["text"])[0], 400)  # nothing changed
+        with open(dmrdash.CONFIG_PATH) as f:
+            self.assertEqual(f.read(), "")  # refused writes never reach config.py (reads leave it emptied)
+        self.assertIsNone(dmrdash.CONFIG["id"])
+
+        edited = j["text"].replace("Timeout=180", "Timeout=240").replace("RXOffset=-350", "# tuned\nRXOffset=-400")
+        status, data = write(edited)
+        self.assertEqual(status, 200, data)
+        with open(dmrdash.CONFIG_PATH) as f:
+            raw = f.read()
+        self.assertNotIn("s3cret", raw)  # the password stays masked; config.py puts it back
+        self.assertEqual(json.loads(raw)["op"], "apply")
+        status, data = self.req("POST", "/api/bm", {"action": "rflevel", "pct": 25}, pin)
+        self.assertEqual((status, json.loads(data)["error"]), (400, "Wait for the MMDVM.ini change to finish"))
+        self.assertEqual(json.loads(self.req("GET", "/api/state")[1])["config"]["op"], "apply")
+
+        with open(ini, "rb") as f:
+            original = f.read()
+        self.helper_runs(cfg, ini)
+        with open(ini, "rb") as f:
+            self.assertEqual(f.read(), original.replace(b"Timeout=180", b"Timeout=240").replace(b"RXOffset=-350", b"# tuned\r\nRXOffset=-400"))
+        with open(ini + ".dmrdash-prev", "rb") as f:
+            self.assertEqual(f.read(), original)
+        s = json.loads(self.req("GET", "/api/state")[1])["config"]
+        self.assertIsNone(s["op"])
+        self.assertEqual((s["last"]["ok"], s["last"]["undo"]), (True, True))
+        self.assertEqual(s["last"]["text"], "Wrote MMDVM.ini: Timeout 240 · RXOffset -400 · comments or layout. DMRHost is running with it.")
+
+        status, data = self.req("POST", "/api/bm", {"action": "configUndo", "id": "nope"}, pin)
+        self.assertEqual(status, 400)
+        self.assertEqual(self.req("POST", "/api/bm", {"action": "configUndo", "id": s["last"]["id"]}, pin)[0], 200)
+        self.helper_runs(cfg, ini)
+        with open(ini, "rb") as f:
+            self.assertEqual(f.read(), original)
+        self.assertEqual(dmrdash.CONFIG_LAST["text"], "Put the previous MMDVM.ini back. DMRHost is running with it.")
+        self.assertEqual(self.req("POST", "/api/bm", {"action": "configUndo", "id": dmrdash.CONFIG_LAST["id"]}, pin)[0], 400)
+
+    def test_config_puts_old_file_back_when_dmrhost_stays_down(self):
+        ini, cfg = self.config_setup()
+        j = self.config_read()
+        status, data = self.req("POST", "/api/bm", {"action": "configWrite", "text": j["text"].replace("RFLevel=100", "RFLevel=50"), "base": j["base"]},
+                                {"X-Dmrdash-Pin": "4321"})
+        self.assertEqual(status, 200, data)
+        self.helper_runs(cfg, ini, running=False)
+        self.assertEqual(dmrdash.CONFIG["op"], "apply")  # written, waiting for DMRHost
+        with dmrdash.LOCK:
+            dmrdash.config_tick(dmrdash.time.time() + dmrdash.CONFIG_WAIT + 1)
+        self.assertEqual((dmrdash.CONFIG["op"], dmrdash.CONFIG["auto"]), ("restore", True))
+        self.helper_runs(cfg, ini)
+        with open(ini, newline="") as f:
+            self.assertEqual(f.read(), self.INI)
+        self.assertFalse(dmrdash.CONFIG_LAST["ok"])
+        self.assertTrue(dmrdash.STATE["events"][0]["text"].startswith("DMRHost didn't come back with the edited MMDVM.ini"))
+
+    def test_config_helper_refuses(self):
+        ini, cfg = self.config_setup()
+        with open(ini, "rb") as f:
+            base = dmrdash.sha256(f.read())
+        text = self.INI.replace("\r\n", "\n").replace("s3cret", dmrdash.MASK)
+
+        def ask(**req):
+            with open(cfg.REQUEST, "w") as f:
+                json.dump(dict({"id": "abc", "ts": dmrdash.time.time(), "op": "apply", "base": base, "text": text}, **req), f)
+        for bad in ({"ts": 1}, {"op": "delete"}, {"base": "x"}, {"text": None}, {"text": text + "[Bad\n"},
+                    {"text": text.replace("Timeout=180", "Timeout=180\x1b")}, {"text": "x" * 70000}):
+            ask(**bad)
+            with self.assertRaises(SystemExit, msg=str(bad)[:60]):
+                cfg.read_request()
+        ask(base="0" * 64)
+        with self.assertRaises(SystemExit):
+            cfg.apply(ini, cfg.read_request())  # made against another file
+        with open(dmrdash.CONFIG_STATUS) as f:
+            self.assertEqual(json.load(f)["state"], "failed")
+        ask(text=text.replace("ColorCode=1", "Passphrase=" + dmrdash.MASK))
+        with self.assertRaises(SystemExit):
+            cfg.apply(ini, cfg.read_request())  # a mask with no password behind it
+        ask()
+        with self.assertRaises(SystemExit):
+            cfg.apply(ini, cfg.read_request())  # no change
+        ask(op="restore")
+        with self.assertRaises(SystemExit):
+            cfg.restore(ini, cfg.read_request())  # nothing to put back
+        with open(ini, newline="") as f:
+            self.assertEqual(f.read(), self.INI)
+        # a read of a file that isn't there comes back as the reason
+        dmrdash.CONF["mmdvm_ini"] = ini + ".missing"
+        cfg.view(ini + ".missing")
+        with open(cfg.VIEW) as f:
+            self.assertTrue(json.load(f)["error"].startswith("Can't read"))
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,0 +1,9 @@
+[Unit]
+Description=Watch for MMDVM.ini edits from the DMRHost dashboard
+
+[Path]
+PathChanged=/var/lib/dmrdash/config.request
+Unit=dmrdash-config.service
+
+[Install]
+WantedBy=paths.target

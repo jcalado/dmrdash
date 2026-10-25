@@ -507,6 +507,162 @@ a.key { text-decoration: none; }
 .slotmsg button { border: 0; background: none; color: var(--white); font: 600 13px var(--sans); cursor: pointer; padding: 0; text-decoration: underline; text-underline-offset: 3px; }
 .mgmt-note { margin: 8px 2px 0; font-size: 12.5px; color: var(--legend-dim); }
 
+/* MMDVM.ini editor: in place of the VFOs and the deck; the strip, the alarm and the page message stay */
+.cfgon .vfos, .cfgon .deck, .cfgon .allhidden { display: none; }
+.cfg { margin-top: 16px; display: flex; flex-direction: column; gap: 16px; }
+.cfghead { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; }
+.cfghead .path { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; min-width: 0; flex: 1 1 260px; }
+.cfghead .path b { font: 400 13px/1.3 var(--mono); overflow-wrap: anywhere; }
+.cfghead .path span { font: 12px/1.3 var(--mono); color: var(--legend-dim); }
+.cfghead .seg button { height: 30px; padding: 0 14px; font-family: var(--sans); }
+.cfgerr { margin: 0; }
+.tlink { border: 0; background: none; padding: 2px 0; font: 600 12.5px/1 var(--sans); color: var(--legend); cursor: pointer;
+  text-decoration: underline; text-decoration-color: var(--rule-2); text-underline-offset: 3px; }
+.tlink:hover { color: var(--white); text-decoration-color: var(--legend); }
+.cfgbody { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; }
+/* sections down the side; on a phone a select instead */
+.cfgnav { flex: 1 1 220px; max-width: 260px; min-width: 0; display: flex; flex-direction: column; gap: 4px; padding: 12px;
+  background: var(--panel-2); border: 1px solid var(--rule); border-radius: 10px; }
+.cfg[data-view="text"] .cfgnav { display: none; }
+.cfgnav > .lg { margin: 2px 2px 6px; }
+.cfgnav input { width: 100%; height: 34px; margin-bottom: 8px; border-radius: 6px; border: 1px solid var(--legend); background: var(--lcd); color: var(--lcd-ink);
+  font: 600 13px/1 var(--mono); padding: 0 8px; color-scheme: light; }
+.cfgnav input::placeholder { color: var(--lcd-dim); font-weight: 400; }
+.cfgnav input:focus, .cfld:focus { outline: 2px solid var(--white); outline-offset: 1px; }
+.cfgnav select { display: none; height: 40px; border-radius: 6px; border: 1px solid var(--rule-2); background: var(--panel-3); color: var(--white); font: 600 14px/1 var(--mono); padding: 0 8px; }
+.cfgnav .ph { display: none; }
+.secl { display: flex; flex-direction: column; gap: 2px; }
+.secl .lg { margin: 6px 2px 4px; }
+.cfgsec { display: flex; justify-content: space-between; align-items: center; gap: 8px; width: 100%; min-height: 36px; padding: 0 10px; border: 1px solid transparent;
+  border-radius: 6px; background: none; color: var(--legend); font: 13px/1.2 var(--sans); text-align: left; cursor: pointer; }
+.cfgsec:hover { background: var(--panel-3); }
+.cfgsec[aria-current="true"] { background: var(--panel-3); border-color: var(--legend); color: var(--white); }
+.cfgsec small { font: 12px/1 var(--mono); color: var(--legend-dim); white-space: nowrap; }
+.cfgsec small.ed { color: var(--legend); } .cfgsec small.bad { color: var(--fail-text); }
+@media (max-width: 820px) {
+  .cfgnav { max-width: none; flex-basis: 100%; }
+  .cfgnav select, .cfgnav .ph { display: block; }
+  .cfgnav input { margin-bottom: 4px; }
+  .secl { display: none; }
+}
+/* the form: a row per key in the file's order; an edited row steps up to key graphite */
+.cfgmain { flex: 999 1 560px; min-width: 0; background: var(--panel-2); border: 1px solid var(--rule); border-radius: 10px; overflow: hidden; }
+.cfgmain .mh { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; padding: 14px 16px 12px; border-bottom: 1px solid var(--rule); }
+.cfgmain .mh h2 { margin: 0; font: 700 16px/1.2 var(--mono); overflow-wrap: anywhere; }
+.cfgmain .mh p { margin: 0; flex: 1 1 260px; font-size: 13px; color: var(--legend); }
+.cfgmain .mh .cnt { font: 12px/1 var(--mono); color: var(--legend-dim); }
+.cfgmain .ph { margin: 0; padding: 16px; color: var(--legend); font-size: 13.5px; }
+.cfgmain .ph.err { color: var(--fail-text); }
+.cfgmain .ph .key { margin-top: 10px; }
+.cr { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; padding: 10px 16px; }
+.cr + .cr { border-top: 1px solid var(--row); }
+.cr.ed { background: var(--panel-3); }
+.cr .k { flex: 1 1 180px; min-width: 0; }
+.cr .kn { font: 600 13px/1.3 var(--mono); overflow-wrap: anywhere; }
+.cr .kl { margin-top: 2px; font-size: 12px; color: var(--legend-dim); }
+.cr .c { flex: 1 1 230px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-width: 0; }
+.cr .h { flex: 1.4 1 240px; min-width: 0; font-size: 12.5px; color: var(--legend-dim); overflow-wrap: anywhere; }
+.cr .h .bad { color: var(--fail-text); } .cr .h .warn { color: var(--busy); } .cr .h .run { color: var(--legend); }
+.cr .unit, .cr .wv { font: 12px/1 var(--mono); color: var(--legend-dim); }
+.cr .was { display: inline-flex; align-items: baseline; gap: 8px; }
+.cr .was:empty { display: none; }
+.cr .switch { font: 12.5px/1 var(--mono); letter-spacing: 0; text-transform: none; min-height: 30px; }
+.cr .seg button { height: 30px; min-width: 44px; padding: 0 10px; font-size: 12.5px; }
+.tag.ed { color: var(--legend); margin-left: 8px; vertical-align: 1px; }
+.cfld { width: 100%; max-width: 280px; height: 34px; min-width: 0; border-radius: 6px; border: 1px solid var(--legend); background: var(--lcd); color: var(--lcd-ink);
+  font: 700 13px/1 var(--mono); padding: 0 8px; color-scheme: light; }
+.cfld::placeholder { color: var(--lcd-dim); font: 400 12.5px var(--sans); }
+.cfld.num { width: 13ch; text-align: right; }
+.cr.bad .cfld { border: 2px solid var(--fail-text); }
+.cfgnote { margin: 0; padding: 12px 16px 14px; border-top: 1px solid var(--row); font-size: 12.5px; color: var(--legend-dim); }
+/* the text view: a transparent textarea over a highlighted copy of the same lines, wrapping alike, so the marks line up */
+.cbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; padding: 10px 14px; }
+.cbar .pos { font: 12px/1 var(--mono); color: var(--legend-dim); }
+.cbar .sp { flex: 1; }
+.cbar .mk { font: 12px/1 var(--mono); color: var(--legend-dim); }
+.cbar .mk b { color: var(--white); } .cbar .mk.bad b { color: var(--fail-text); }
+.ccode { position: relative; background: #121416; border-top: 1px solid var(--rule); padding: 8px 0; font-family: var(--mono); font-size: 13px; line-height: 20px;
+  font-variant-numeric: tabular-nums; font-variant-ligatures: none; tab-size: 8; }
+.ccode:focus-within { outline: 2px solid var(--white); outline-offset: -2px; }
+.ccode .ln { display: grid; grid-template-columns: 18px 44px minmax(0, 1fr); }
+.ccode .g { text-align: center; color: var(--white); }
+.ccode .n { text-align: right; padding-right: 12px; color: var(--legend-dim); }
+.ccode .c { min-height: 20px; padding-right: 14px; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--legend); }
+.ccode .s, .ccode .v { color: var(--white); } .ccode .e, .ccode .cm { color: var(--legend-dim); }
+.ccode .ln.ed { background: #202427; }
+.ccode .ln.cur { background: #262b2f; } .ccode .ln.cur .n { color: var(--white); }
+.ccode .ln.bad { background: var(--alarm-bg); } .ccode .ln.bad .g { color: var(--fail-text); }
+.ccode .ln.bad .c { text-decoration: underline wavy var(--fail-text); text-underline-offset: 4px; text-decoration-skip-ink: none; }
+.ccode .ln.warn .g { color: var(--busy); }
+.cta { position: absolute; top: 8px; left: 62px; width: calc(100% - 76px); height: calc(100% - 16px); margin: 0; padding: 0; border: 0; border-radius: 0; resize: none;
+  overflow: hidden; background: transparent; color: transparent; caret-color: var(--white); outline: none;
+  font: inherit; line-height: inherit; font-variant-numeric: inherit; font-variant-ligatures: none; letter-spacing: 0; tab-size: 8;
+  white-space: pre-wrap; overflow-wrap: anywhere; }
+.cta::selection { background: rgb(179 186 194 / .32); color: transparent; }
+/* 16px keeps a phone from zooming in on the field */
+@media (max-width: 820px), (pointer: coarse) { .ccode { font-size: 16px; line-height: 24px; } .ccode .c { min-height: 24px; } }
+.cfgside { flex: 1 1 300px; max-width: 380px; min-width: 0; display: flex; flex-direction: column; gap: 16px; }
+.cfgside[hidden] { display: none; }
+@media (max-width: 820px) { .cfgside { max-width: none; } }
+.sbox { background: var(--panel-2); border: 1px solid var(--rule); border-radius: 10px; overflow: hidden; }
+.sbox .sh { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; padding: 12px 14px 10px; }
+.sbox .sh b { font: 700 15px/1.2 var(--mono); }
+.sbox .sh span { font: 12px/1 var(--mono); color: var(--legend-dim); }
+.sbox .sh .bad { color: var(--fail-text); }
+.sbox p { margin: 0; padding: 0 14px 12px; font-size: 13px; color: var(--legend); }
+.sbox p.none { font-size: 12.5px; color: var(--legend-dim); }
+.sitem { display: block; width: 100%; text-align: left; background: none; border: 0; border-top: 1px solid var(--row); padding: 9px 14px; color: var(--white);
+  font: 12.5px/1.4 var(--mono); cursor: pointer; overflow-wrap: anywhere; }
+.sitem:hover:not(:disabled) { background: var(--panel-3); }
+.sitem:disabled { cursor: default; }
+.sitem .at { color: var(--legend-dim); margin-right: 8px; }
+.sitem .why { display: block; margin-top: 2px; font-family: var(--sans); color: var(--fail-text); }
+.sitem .why.w { color: var(--busy); }
+.sitem s, .chg s { color: var(--legend-dim); text-decoration-color: var(--rule-2); }
+/* changes so far, with the key to review them; it stays in reach at the foot of the window */
+.cfgbar { position: sticky; bottom: 12px; z-index: 5; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; padding: 12px 16px;
+  background: var(--panel-2); border: 1px solid var(--rule-2); border-radius: 10px; }
+.cfgbar[hidden] { display: none; }
+.cfgbar .sum { flex: 1 1 280px; min-width: 0; display: grid; gap: 2px; }
+.cfgbar .sum b { font-weight: 600; }
+.cfgbar .sum small { font: 12.5px var(--mono); color: var(--legend-dim); margin-left: 6px; }
+.cfgbar .why { font-size: 12.5px; color: var(--legend-dim); }
+.cfgbar .why.bad { color: var(--fail-text); }
+.key.act.go { border-color: var(--legend); color: var(--white); }
+/* review: the changes by key, or as a line diff; old lines are dim, new ones lifted (no red or green: those mean TX and RX) */
+.cfgdlg { border: 1px solid var(--rule-2); border-radius: 10px; background: var(--panel-2); color: var(--white); padding: 0;
+  width: min(660px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); overflow: hidden; }
+.cfgdlg[open] { display: flex; }
+.cfgdlg::backdrop { background: rgb(0 0 0 / .55); }
+.cfgdlg .dbody { display: flex; flex-direction: column; gap: 12px; padding: 12px 16px 14px; }
+.cfgdlg .dhead { flex-wrap: wrap; }
+.cfgdlg .dhead h3 { flex: 1 1 220px; }
+.cfgdlg .dhead .seg { margin-left: auto; }
+.cfgdlg .dhead .seg button { height: 30px; padding: 0 10px; font-family: var(--sans); }
+.cfgdlg .dhead .dx { margin-left: 0; }
+.chgs .lg { display: block; margin: 12px 0 4px; }
+.chgs .lg:first-child { margin-top: 0; }
+.chg { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; padding: 8px 0; border-top: 1px solid var(--row); font: 13px/1.35 var(--mono); }
+.chg .ar { color: var(--legend-dim); margin: 0 6px; }
+.chg em { font: 12px var(--sans); color: var(--legend-dim); font-style: normal; }
+.chgs .more { margin: 10px 0 0; font-size: 12.5px; color: var(--legend-dim); }
+.dif { background: #121416; border: 1px solid var(--rule); border-radius: 6px; padding: 0 0 6px; font: 12.5px/1.55 var(--mono); font-variant-numeric: tabular-nums; overflow: hidden; }
+.dif .dl { display: grid; grid-template-columns: 5ch 5ch 2.5ch minmax(0, 1fr); color: var(--legend-dim); }
+.dif .no { text-align: right; padding-right: 6px; color: var(--legend-dim); }
+.dif .mk { text-align: center; }
+.dif .t { white-space: pre-wrap; overflow-wrap: anywhere; padding-right: 10px; }
+.dif .del { background: #181a1d; } .dif .del .t, .dif .del .mk { color: var(--legend); }
+.dif .add { background: var(--panel-3); } .dif .add .t, .dif .add .mk { color: var(--white); }
+.dif .hh { margin: 6px 0 2px; padding: 4px 10px; border-block: 1px solid var(--rule); background: var(--panel-2); font-size: 12px; color: var(--legend-dim); }
+.dif .hh:first-child { margin-top: 0; border-top: 0; }
+.cfgwhat { margin: 0; padding: 10px 14px 4px 30px; background: var(--panel); border: 1px solid var(--rule); border-radius: 6px; font-size: 13px; color: var(--legend); }
+.cfgwhat li { margin-bottom: 6px; }
+.cfgwhat b { color: var(--white); font-weight: 600; }
+.cfgwhat .mono { font: 12.5px var(--mono); overflow-wrap: anywhere; }
+.cfgfoot { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; padding: 12px 16px 14px; border-top: 1px solid var(--rule); }
+.cfgfoot .fine { flex: 1 1 180px; margin: 0; font-size: 12.5px; color: var(--legend-dim); }
+.cfgfoot .slotmsg { flex-basis: 100%; margin: 0; }
+
 /* lower deck */
 .deck { margin-top: 16px; }
 .box { background: var(--panel-2); border: 1px solid var(--rule); border-radius: 10px; padding: 12px 0 4px; min-width: 0; }
@@ -599,6 +755,7 @@ dt { color: var(--legend-dim); } dd { margin: 0; overflow-wrap: anywhere; } dd.n
 <div class="wrap">
   <div class="alarm" id="alarm" role="alert" hidden></div>
   <div class="slotmsg gmsg" id="gmsg" aria-live="polite" hidden></div>
+  <div class="cfg" id="cfg" hidden></div>
 
   <main class="vfos"><div id="vfo1"></div><div id="vfo2"></div></main>
 
@@ -637,6 +794,8 @@ dt { color: var(--legend-dim); } dd { margin: 0; overflow-wrap: anywhere; } dd.n
 </div>
 
 <dialog class="tgdlg" id="tgdlg" aria-labelledby="tgdlgt"></dialog>
+
+<dialog class="cfgdlg" id="cfgdlg" aria-labelledby="cfgdlgt"></dialog>
 
 <dialog class="pindlg" id="pindlg" aria-labelledby="pintitle">
   <form method="dialog">
@@ -688,6 +847,8 @@ const ICONS = {
   restart: '<path d="M13 8a5 5 0 1 1-1.5-3.6"/><path d="M13 2.5v3h-3"/>',
   term: '<rect x="1.5" y="2.5" width="13" height="11" rx="1.5"/><path d="M4.5 6.5l2 1.5-2 1.5M8 10h3.5"/>',
   update: '<path d="M8 2v8M4.5 6.5L8 10l3.5-3.5"/><path d="M2.5 11.5v2h11v-2"/>',
+  file: '<path d="M9.5 1.5H4a1 1 0 0 0-1 1v11a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V5z"/><path d="M9.5 1.5V5H13M5.5 8.5h5M5.5 11h3.5"/>',
+  back: '<path d="M10 3L5 8l5 5"/>',
   copy: '<rect x="5.5" y="5.5" width="8" height="8" rx="1.2"/><path d="M10.5 3.5V3a1 1 0 0 0-1-1H3a1 1 0 0 0-1 1v6.5a1 1 0 0 0 1 1h.5"/>',
 };
 function icon(name) {
@@ -752,6 +913,10 @@ function health() {
       + "RF still works locally; nothing reaches the network."];
   if (S.master && S.master.target) alarm = ["Moving to master " + S.master.target, "DMRHost restarts and logs in again; the link is down for a few seconds."];
   if (S.rflevel && S.rflevel.target != null) alarm = ["Setting RF power to " + S.rflevel.target + "%", "DMRHost restarts with it; off the air for a few seconds."];
+  if (S.config && S.config.op) alarm = S.config.op === "apply"
+    ? ["Writing MMDVM.ini", "DMRHost restarts with the edited file; off the air for a few seconds. If it doesn't come back, the previous file goes back by itself."]
+    : ["Putting the previous MMDVM.ini back", S.config.auto ? "DMRHost didn't come back with the edited file, so it restarts with the one before."
+      : "DMRHost restarts with it; off the air for a few seconds."];
   if (S.restart) alarm = ["Restarting DMRHost", "Off the air for a few seconds while it starts and logs in again."];
   if (S.update && S.update.updating) alarm = ["Updating dmrdash" + (S.update.latest ? " to " + S.update.latest : ""),
     "The dashboard restarts with the new version and this page reloads by itself. The hotspot stays on the air."];
@@ -1329,10 +1494,11 @@ function syncInfo() {
 
 /* ---------------- restart / shut down ---------------- */
 // DMRHost is restarting for one of the dashboard's changes: anything else that restarts it waits
-const restarting = () => !!S.restart || !!(S.master && S.master.target) || !!(S.rflevel && S.rflevel.target != null);
+const restarting = () => !!S.restart || !!(S.master && S.master.target) || !!(S.rflevel && S.rflevel.target != null) || !!(S.config && S.config.op);
 function renderPower() {
   const off = !!ui.busy || !!ui.power || restarting();
-  fill($("hostrow"), S.can_power
+  fill($("hostrow"), S.config && S.config.can ? h("button", { class: "key sm act", id: "cfgopen", type: "button", onclick: cfgOpen }, icon("file"), "Config") : null,
+    S.can_power
     ? h("button", { class: "key sm act", id: "pwhost", type: "button", disabled: off, onclick: () => powerAct("dmrhost") }, icon("restart"), S.restart ? "Restarting…" : "Restart")
     : null);
   // shut down is icon-only to fit the Pi's name line; its label is in aria-label, the tooltip and the confirmation
@@ -1731,6 +1897,538 @@ function renderChips(shown) {
 }
 const touchOnly = matchMedia("(hover: none)");
 
+/* ---------------- MMDVM.ini editor ---------------- */
+// Opens from Config on the DMRHost row, in place of the VFOs and the deck. The file comes from the Pi with its
+// passwords masked and is edited as its own lines: the form changes the values of the keys in place, the text view
+// changes anything. Saving sends the text back with the hash of the file it came from; the Pi checks it again, has
+// its root helper write only the changed lines, and puts the old file back if DMRHost doesn't come back.
+const CF = { orig: null, lines: [], base: "", path: "", keys: {}, secs: {}, mask: "", read: 0, view: "form", sec: null, find: "", cur: 0,
+  err: null, loading: false, discard: false, diff: false, busy: false, werr: null, wstale: false, pushed: false };
+try { CF.view = localStorage.getItem("dmrdash.cfgView") === "text" ? "text" : "form"; CF.diff = localStorage.getItem("dmrdash.cfgDiff") === "1"; } catch (e) {}
+const INI_KV = /^(\s*([^=]*?)\s*=\s*)(.*)$/;
+// every line the Pi will write: blank, a # or ; comment, a [section], or key=value (the Pi checks the same)
+const INI_LINE = /^[ \t]*(?:[#;].*|\[[^\]]+\][ \t]*|[^\s=[#;][^=]*=.*)?$/;
+const INI_CTRL = /[\x00-\x08\x0a-\x1f\x7f]/;
+const cfgSpec = (sec, key) => (CF.keys[sec] || {})[key] || null;
+const isSecret = (key) => /pass|secret|token|apikey/i.test(key);
+const kid = (sec, key) => sec + "\u0000" + key;
+
+// one entry per line: k is blank, comment, sec, kv or bad, with the section it is in
+function iniParse(lines) {
+  let sec = null;
+  return lines.map((line) => {
+    const s = line.trim();
+    if (!s) return { k: "blank", sec };
+    if (s[0] === "#" || s[0] === ";") return { k: "comment", sec };
+    if (s[0] === "[") {
+      if (s.endsWith("]") && s.length > 2) { sec = s.slice(1, -1); return { k: "sec", sec }; }
+      return { k: "bad", sec };
+    }
+    const m = INI_KV.exec(line);
+    return m && m[2] ? { k: "kv", sec, key: m[2], val: m[3].trim(), pre: m[1] } : { k: "bad", sec };
+  });
+}
+function valueProblem(spec, v) {
+  const rng = " from " + spec.min + " to " + spec.max + (spec.unit ? " " + spec.unit : "");
+  if (v === "") return null;
+  if (spec.t === "bool" && v !== "0" && v !== "1") return "Use 1 for on, 0 for off";
+  if (spec.t === "int" && !(/^-?\d+$/.test(v) && spec.min <= Number(v) && Number(v) <= spec.max)) return "A whole number" + rng;
+  if (spec.t === "num" && !(/^-?\d+(\.\d+)?$/.test(v) && spec.min <= Number(v) && Number(v) <= spec.max)) return "A number" + rng;
+  if (spec.t === "choice" && !spec.opts.includes(v)) return "One of " + spec.opts.join(", ");
+  return null;
+}
+// line -> {level, text}; E stops a save, W only warns. The Pi runs the same checks again.
+function iniProblems(lines) {
+  const out = new Map(), seen = new Set();
+  let sec = null;
+  lines.forEach((line, i) => {
+    const s = line.trim();
+    if (INI_CTRL.test(line)) return out.set(i, { level: "E", text: "This line has control characters in it" });
+    if (!INI_LINE.test(line)) return out.set(i, { level: "E", text: s[0] === "[" ? "A section line is [Name]"
+      : s[0] === "=" ? "The key before = is missing" : "Not a key=value line, a [section] or a # comment" });
+    if (!s || s[0] === "#" || s[0] === ";") return;
+    if (s[0] === "[") { sec = s.slice(1, -1); return; }
+    if (sec === null) return out.set(i, { level: "E", text: "This key is outside any [section]" });
+    const m = INI_KV.exec(line), key = m[2], spec = cfgSpec(sec, key);
+    if (seen.has(kid(sec, key))) out.set(i, { level: "W", text: key + " is set twice in [" + sec + "]; DMRHost uses only one of them" });
+    seen.add(kid(sec, key));
+    const why = spec && valueProblem(spec, m[3].trim());
+    if (why) out.set(i, { level: "E", text: why });
+  });
+  return out;
+}
+// the first value of each key, by section
+function iniValues(parsed) {
+  const m = new Map();
+  parsed.forEach((p, i) => { if (p.k === "kv" && !m.has(kid(p.sec, p.key))) m.set(kid(p.sec, p.key), { sec: p.sec, key: p.key, val: p.val, i }); });
+  return m;
+}
+// keys added, changed or removed: {sec, key, old (null: added), val (null: removed), i (its line now, -1 when removed)}
+function iniChanges() {
+  const out = [];
+  for (const [id, x] of CF.values) { const o = CF.origValues.get(id); if (!o || o.val !== x.val) out.push({ sec: x.sec, key: x.key, old: o ? o.val : null, val: x.val, i: x.i }); }
+  for (const [id, o] of CF.origValues) if (!CF.values.has(id)) out.push({ sec: o.sec, key: o.key, old: o.val, val: null, i: -1 });
+  return out;
+}
+// a line diff of a against b: [op, i, j] in order, op " " (in both), "-" (only in a, line i) or "+" (only in b, line j)
+function lineDiff(a, b) {
+  let s = 0, ea = a.length, eb = b.length;
+  while (s < ea && s < eb && a[s] === b[s]) s++;
+  while (ea > s && eb > s && a[ea - 1] === b[eb - 1]) { ea--; eb--; }
+  const n = ea - s, m = eb - s, out = [];
+  for (let k = 0; k < s; k++) out.push([" ", k, k]);
+  if (n * m > 4e6) {  // too big to align: all out, then all in
+    for (let i = 0; i < n; i++) out.push(["-", s + i, -1]);
+    for (let j = 0; j < m; j++) out.push(["+", -1, s + j]);
+  } else {
+    const w = m + 1, L = new Uint32Array((n + 1) * w);
+    for (let i = n - 1; i >= 0; i--) for (let j = m - 1; j >= 0; j--)
+      L[i * w + j] = a[s + i] === b[s + j] ? L[(i + 1) * w + j + 1] + 1 : Math.max(L[(i + 1) * w + j], L[i * w + j + 1]);
+    let i = 0, j = 0;
+    while (i < n || j < m) {
+      if (i < n && j < m && a[s + i] === b[s + j]) { out.push([" ", s + i, s + j]); i++; j++; }
+      else if (i < n && (j === m || L[(i + 1) * w + j] >= L[i * w + j + 1])) { out.push(["-", s + i, -1]); i++; }
+      else { out.push(["+", -1, s + j]); j++; }
+    }
+  }
+  for (let k = 0; ea + k < a.length; k++) out.push([" ", ea + k, eb + k]);
+  return out;
+}
+function cfgDerive() {
+  CF.parsed = iniParse(CF.lines);
+  CF.probs = iniProblems(CF.lines);
+  CF.values = iniValues(CF.parsed);
+  CF.changes = iniChanges();
+  CF.dirty = CF.lines.length !== CF.orig.length || CF.lines.some((l, i) => l !== CF.orig[i]);
+}
+const cfgErrors = () => [...CF.probs].filter(([, p]) => p.level === "E");
+const cfgShown = (key, v) => v == null ? "" : isSecret(key) ? "hidden" : v === "" ? "empty" : v;
+// a password the page typed shows masked in the review too
+function maskLine(line) {
+  const m = INI_KV.exec(line);
+  return m && m[2] && isSecret(m[2]) && m[3].trim() ? m[1] + CF.mask : line;
+}
+// what DMRHost is running with, where the dashboard knows it
+function cfgRunning(sec, key) {
+  if (!S) return null;
+  if (sec === "Modem" && key === "RXOffset" && S.rf && S.rf.offset != null) return "DMRHost runs with " + hzText(S.rf.offset) + ".";
+  if (sec === "Modem" && key === "RFLevel" && S.rflevel && S.rflevel.level != null) return "DMRHost runs at " + S.rflevel.level + "%.";
+  if (sec === "DMR Network" && key === "Address" && S.master && S.master.current) return "DMRHost is on master " + S.master.current + ".";
+  return null;
+}
+const cfgRange = (spec) => spec && (spec.t === "int" || spec.t === "num") ? spec.min + " to " + spec.max + (spec.unit ? " " + spec.unit : "") + "." : "";
+
+function cfgOpen() {
+  ui.menu[5] = false; syncInfo();
+  if (location.hash === "#config") return cfgShow();
+  CF.pushed = true; location.hash = "config";  // the hashchange opens it, and Back closes it again
+}
+function cfgShow() {
+  document.body.classList.add("cfgon"); $("cfg").hidden = false;
+  cfgShell(); scrollTo(0, 0);
+  if (!CF.orig || !CF.dirty) cfgLoad(); else cfgRender();
+  focusId("cfgback");
+}
+function cfgHide() {
+  if ($("cfg").hidden) return;
+  if ($("cfgdlg").open) $("cfgdlg").close();
+  document.body.classList.remove("cfgon"); $("cfg").hidden = true; fill($("cfg"));
+  if (S) renderBer(true, true);  // it was drawn at no width while hidden
+  focusId("hbtn");
+}
+function cfgLeave() {
+  if (CF.pushed) { CF.pushed = false; history.back(); return; }
+  history.replaceState(null, "", location.pathname + location.search); cfgHide();
+}
+async function cfgLoad() {
+  CF.loading = true; CF.err = null; cfgRender();
+  try {
+    const { ok, status, j } = await post({ action: "configRead" });
+    if (ok) {
+      Object.assign(CF, { path: j.path, base: j.base, keys: j.keys || {}, secs: j.sections || {}, mask: j.mask, read: now(), discard: false });
+      CF.orig = j.text.split("\n"); CF.lines = CF.orig.slice();
+      CF.origParsed = iniParse(CF.orig); CF.origValues = iniValues(CF.origParsed);
+      cfgDerive();
+      const names = cfgSections().map((x) => x.name);
+      if (!names.includes(CF.sec)) CF.sec = names[0] || null;
+    } else CF.err = j.error || "Failed (HTTP " + status + ")";
+  } catch (e) { CF.err = "Can't reach the dashboard on the Pi"; }
+  CF.loading = false;
+  cfgRender();
+}
+
+function cfgShell() {
+  const views = h("div", { class: "seg", id: "cfgviews", role: "radiogroup", "aria-label": "Edit as" }, ["form", "text"].map((v) =>
+    h("button", { type: "button", role: "radio", id: "cfgv-" + v, onclick: () => cfgView(v) }, v === "form" ? "Form" : "Text")));
+  views.addEventListener("keydown", (e) => {
+    if (!{ ArrowRight: 1, ArrowDown: 1, ArrowLeft: 1, ArrowUp: 1 }[e.key]) return;
+    e.preventDefault(); cfgView(CF.view === "form" ? "text" : "form");
+  });
+  fill($("cfg"),
+    h("div", { class: "cfghead" },
+      h("button", { class: "key sm act", id: "cfgback", type: "button", onclick: cfgLeave }, icon("back"), "Panel"),
+      h("div", { class: "path" }, h("h2", { class: "lg" }, "Config"), h("b", { id: "cfgpath" }), h("span", { id: "cfgmeta" })),
+      views),
+    h("div", { class: "slotmsg err cfgerr", id: "cfgerr", role: "alert", hidden: true }),
+    h("div", { class: "cfgbody" },
+      h("nav", { class: "cfgnav", "aria-label": "MMDVM.ini sections" },
+        h("label", { class: "lg dim", for: "cfgfind" }, "Find a key"),
+        h("input", { id: "cfgfind", type: "search", placeholder: "RXOffset, ColorCode…", autocomplete: "off", spellcheck: "false",
+          oninput: (e) => { CF.find = e.target.value; cfgNav(); cfgMain(); } }),
+        h("label", { class: "lg dim ph", for: "cfgsel" }, "Section"),
+        h("select", { id: "cfgsel", onchange: (e) => cfgSection(e.target.value) }),
+        h("div", { class: "secl" }, h("span", { class: "lg dim" }, "Sections"), h("div", { class: "secl", id: "cfgsecs" }))),
+      h("section", { class: "cfgmain", id: "cfgmain", "aria-labelledby": "cfgmh" }),
+      h("aside", { class: "cfgside", id: "cfgside", "aria-label": "Key, checks and changes", hidden: true })),
+    h("div", { class: "cfgbar", id: "cfgbar", hidden: true }));
+  $("cfgfind").value = CF.find;
+}
+function cfgRender() {
+  if (!$("cfgmain")) return;
+  $("cfg").dataset.view = CF.view;
+  for (const v of ["form", "text"]) { const b = $("cfgv-" + v); b.setAttribute("aria-checked", String(CF.view === v)); b.tabIndex = CF.view === v ? 0 : -1; }
+  $("cfgpath").textContent = CF.path || "MMDVM.ini";
+  $("cfgmeta").textContent = CF.orig ? CF.orig.length + " lines · read " + hhmmss(CF.read) : "";
+  const e = $("cfgerr");
+  e.hidden = !(CF.err && CF.orig);
+  if (!e.hidden) fill(e, CF.err, CF.stale ? h("button", { type: "button", onclick: cfgReload }, "Reload") : null);
+  cfgNav(); cfgMain(); cfgSide(); cfgBar();
+}
+function cfgView(v) {
+  CF.view = v;
+  try { localStorage.setItem("dmrdash.cfgView", v); } catch (e) {}
+  cfgRender(); focusId("cfgv-" + v);
+}
+function cfgSection(name) {
+  CF.sec = name; CF.find = ""; $("cfgfind").value = "";
+  cfgNav(); cfgMain();
+}
+// the file's sections in order, each with its key count, edits, problems, and whether it's turned off
+function cfgSections() {
+  const m = new Map();
+  CF.parsed.forEach((p, i) => {
+    if (p.k === "sec" && !m.has(p.sec)) m.set(p.sec, { name: p.sec, n: 0, ed: 0, bad: 0, off: false });
+    const s = p.k === "kv" && m.get(p.sec);
+    if (!s) return;
+    s.n++;
+    const pr = CF.probs.get(i);
+    if (pr && pr.level === "E") s.bad++;
+    if (p.key === "Enable" && p.val === "0") s.off = true;
+  });
+  for (const c of CF.changes) if (m.has(c.sec)) m.get(c.sec).ed++;
+  return [...m.values()];
+}
+function cfgNav() {
+  const list = $("cfgsecs"), sel = $("cfgsel");
+  if (!list) return;
+  const secs = CF.orig ? cfgSections() : [], q = CF.find.trim();
+  const note = (s) => s.bad ? ["bad", s.bad + (s.bad === 1 ? " problem" : " problems")] : s.ed ? ["ed", s.ed + " edited"] : s.off ? ["", "off"] : ["", String(s.n)];
+  fill(list, secs.map((s, k) => h("button", { class: "cfgsec", id: "cfgs" + k, type: "button", "aria-current": String(!q && s.name === CF.sec),
+    onclick: () => { cfgSection(s.name); focusId("cfgs" + k); } }, s.name, h("small", { class: note(s)[0] }, note(s)[1]))));
+  if (document.activeElement !== sel) {
+    fill(sel, secs.map((s) => h("option", { value: s.name }, s.name + (s.bad || s.ed || s.off ? " · " + note(s)[1] : ""))));
+    sel.value = CF.sec || "";
+  }
+}
+
+function cfgMain() {
+  const box = $("cfgmain");
+  if (!box) return;
+  if (!CF.orig) return fill(box, CF.loading || !CF.err
+    ? h("p", { class: "ph", id: "cfgmh" }, "Reading " + (CF.path || "MMDVM.ini") + " from the Pi…")
+    : h("div", { class: "ph err", id: "cfgmh" }, CF.err, h("div", {}, h("button", { class: "key sm act", id: "cfgretry", type: "button", onclick: cfgLoad }, "Try again"))));
+  if (CF.view === "text") return cfgText();
+  const q = CF.find.trim().toLowerCase();
+  const idx = CF.parsed.map((p, i) => i).filter((i) => {
+    const p = CF.parsed[i];
+    if (p.k !== "kv") return false;
+    if (!q) return p.sec === CF.sec;
+    const spec = cfgSpec(p.sec, p.key);
+    return p.key.toLowerCase().includes(q) || (spec && spec.label.toLowerCase().includes(q));
+  });
+  const gone = q ? [] : CF.changes.filter((c) => c.val == null && c.sec === CF.sec);
+  const count = h("span", { class: "cnt" }, idx.length + (idx.length === 1 ? " key" : " keys"));
+  fill(box,
+    h("div", { class: "mh" }, q ? h("h2", { id: "cfgmh" }, "Keys with “" + CF.find.trim() + "”")
+      : [h("h2", { id: "cfgmh" }, "[" + CF.sec + "]"), CF.secs[CF.sec] ? h("p", {}, CF.secs[CF.sec]) : null], count),
+    h("div", {}, idx.length ? idx.map((i) => cfgRow(i, !!q)) : h("p", { class: "ph" }, q ? "No key has that in its name or label." : "This section has no keys.")),
+    gone.length ? h("p", { class: "cfgnote" }, "Taken out in Text: ", gone.map((c) => c.key).join(", ")) : null,
+    h("p", { class: "cfgnote" }, "Comments, blank lines and the order of keys are kept as written. To add or take out a key, use Text."));
+}
+function cfgRow(i, withSec) {
+  const p = CF.parsed[i], spec = cfgSpec(p.sec, p.key);
+  const row = h("div", { class: "cr", id: "cr" + i },
+    h("div", { class: "k" }, h("div", { class: "kn" }, p.key, h("span", { class: "tagslot" })),
+      spec || withSec ? h("div", { class: "kl" }, [withSec ? "[" + p.sec + "]" : null, spec ? spec.label : null].filter(Boolean).join(" · ")) : null),
+    h("div", { class: "c" }, cfgControl(i, p, spec), h("span", { class: "was" })),
+    h("div", { class: "h" }));
+  cfgRowMeta(i, row);
+  return row;
+}
+function cfgRowMeta(i, row) {
+  row = row || $("cr" + i);
+  if (!row) return;
+  const p = CF.parsed[i], spec = cfgSpec(p.sec, p.key), ch = CF.changes.find((c) => c.i === i), pr = CF.probs.get(i);
+  row.classList.toggle("ed", !!ch);
+  row.classList.toggle("bad", !!pr && pr.level === "E");
+  fill(row.querySelector(".tagslot"), ch ? h("span", { class: "tag ed" }, ch.old == null ? "Added" : "Edited") : null);
+  fill(row.querySelector(".was"), ch && ch.old != null ? [h("span", { class: "wv" }, "was " + cfgShown(p.key, ch.old)),
+    h("button", { class: "tlink", type: "button", id: "rv" + i, onclick: () => { cfgSet(i, ch.old, true); focusId(cfgFocusId(i)); } }, "Revert")] : null);
+  const run = cfgRunning(p.sec, p.key);
+  fill(row.querySelector(".h"), pr ? h("span", { class: pr.level === "E" ? "bad" : "warn", id: "ch" + i }, pr.text)
+    : [spec && spec.hint ? spec.hint + ". " : "", cfgRange(spec), run ? [" ", h("span", { class: "run" }, run)] : null]);
+  const f = row.querySelector("input.cfld");
+  if (f) pr ? f.setAttribute("aria-describedby", "ch" + i) : f.removeAttribute("aria-describedby");
+}
+const cfgFocusId = (i) => { const p = CF.parsed[i], spec = cfgSpec(p.sec, p.key); return spec && spec.t === "choice" && spec.opts.includes(p.val) ? "cf" + i + "-" + p.val : "cf" + i; };
+function cfgControl(i, p, spec) {
+  const id = "cf" + i, v = p.val, t = spec && spec.t;
+  if (t === "bool" && (v === "0" || v === "1"))
+    return h("button", { class: "switch", id, type: "button", role: "switch", "aria-checked": String(v === "1"), "aria-label": p.key,
+      onclick: () => { cfgSet(i, v === "1" ? "0" : "1", true); focusId(id); } }, h("span", { class: "track", "aria-hidden": "true" }, h("i")), v === "1" ? "On" : "Off");
+  if (t === "choice" && spec.opts.includes(v)) {
+    const g = h("div", { class: "seg", role: "radiogroup", "aria-label": p.key }, spec.opts.map((o) =>
+      h("button", { type: "button", role: "radio", id: id + "-" + o, "aria-checked": String(o === v), tabindex: o === v ? 0 : -1,
+        onclick: () => { if (o !== v) { cfgSet(i, o, true); focusId(id + "-" + o); } } }, o)));
+    g.addEventListener("keydown", (e) => {
+      const d = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[e.key];
+      if (!d) return;
+      e.preventDefault();
+      const o = spec.opts[(spec.opts.indexOf(v) + d + spec.opts.length) % spec.opts.length];
+      cfgSet(i, o, true); focusId(id + "-" + o);
+    });
+    return g;
+  }
+  const secret = isSecret(p.key), hidden = secret && v === CF.mask, o = CF.origValues.get(kid(p.sec, p.key));
+  const inp = h("input", { class: "cfld" + (t === "int" || t === "num" ? " num" : ""), id, type: secret ? "password" : "text", "aria-label": p.key,
+    spellcheck: "false", autocomplete: secret ? "new-password" : "off", autocapitalize: "off",
+    inputmode: t === "num" ? "decimal" : t === "int" && spec.min >= 0 ? "numeric" : null, placeholder: hidden ? "Hidden · unchanged" : null,
+    // a cleared password field means "leave it as it was"
+    oninput: (e) => cfgSet(i, secret && e.target.value === "" && o && o.val === CF.mask ? CF.mask : e.target.value) });
+  inp.value = hidden ? "" : v;
+  return [inp, spec && spec.unit ? h("span", { class: "unit" }, spec.unit) : null];
+}
+// a value from the form, into its own line; rebuild redraws the row (a switch or a choice), typing only updates its marks
+function cfgSet(i, val, rebuild) {
+  CF.lines[i] = CF.parsed[i].pre + val;
+  CF.discard = false;
+  cfgDerive();
+  const row = $("cr" + i);
+  if (rebuild && row) row.replaceWith(cfgRow(i, !!CF.find.trim()));
+  else cfgRowMeta(i);
+  cfgNav(); cfgBar();
+}
+
+function cfgText() {
+  const ta = h("textarea", { class: "cta", id: "cfgta", spellcheck: "false", autocomplete: "off", autocapitalize: "off", autocorrect: "off",
+    "aria-label": "MMDVM.ini", "aria-describedby": "cfgpos" });
+  ta.value = CF.lines.join("\n");
+  ta.addEventListener("input", () => {
+    CF.lines = ta.value.split("\n"); CF.discard = false;
+    cfgDerive(); cfgCaret(true); cfgBar();
+  });
+  for (const ev of ["keyup", "click", "focus", "select"]) ta.addEventListener(ev, () => cfgCaret(false));
+  fill($("cfgmain"),
+    h("div", { class: "cbar" }, h("h2", { class: "lg", id: "cfgmh" }, CF.path.split("/").pop() || "MMDVM.ini"), h("span", { class: "pos", id: "cfgpos" }), h("span", { class: "sp" }),
+      h("span", { class: "mk", id: "cfgmk" })),
+    h("div", { class: "ccode" }, h("div", { id: "cfghl", "aria-hidden": "true" }), ta));
+  cfgHl(); cfgMarks(); cfgCaret(false);
+}
+// the highlighted copy under the textarea: line numbers, an edited dot or a problem mark, and colour by kind of line
+function cfgHl() {
+  const ed = new Set(lineDiff(CF.orig, CF.lines).filter((d) => d[0] === "+").map((d) => d[2]));
+  fill($("cfghl"), CF.lines.map((line, i) => {
+    const p = CF.parsed[i], pr = CF.probs.get(i);
+    let code = line;
+    if (p.k === "sec") code = h("span", { class: "s" }, line);
+    else if (p.k === "comment") code = h("span", { class: "cm" }, line);
+    else if (p.k === "kv") { const eq = p.pre.indexOf("="); code = [h("span", { class: "k" }, p.pre.slice(0, eq)), h("span", { class: "e" }, p.pre.slice(eq)), h("span", { class: "v" }, line.slice(p.pre.length))]; }
+    return h("div", { class: "ln" + (ed.has(i) ? " ed" : "") + (pr ? (pr.level === "E" ? " bad" : " warn") : "") + (i === CF.cur ? " cur" : "") },
+      h("span", { class: "g" }, pr ? "!" : ed.has(i) ? "•" : ""), h("span", { class: "n" }, i + 1), h("span", { class: "c" }, code));
+  }));
+}
+function cfgMarks() {
+  const mk = $("cfgmk"), errs = cfgErrors().length;
+  if (!mk) return;
+  mk.className = "mk" + (errs ? " bad" : "");
+  fill(mk, h("b", {}, "•"), " edited  ", h("b", {}, "!"), " " + (errs ? errs + (errs === 1 ? " problem" : " problems") : "problem"));
+}
+// which line the caret is on: its row lifts, and the side panel explains that line's key
+function cfgCaret(redraw) {
+  const ta = $("cfgta");
+  if (!ta) return;
+  const i = ta.value.slice(0, ta.selectionStart).split("\n").length - 1, moved = i !== CF.cur;
+  CF.cur = i;
+  if (redraw) { cfgHl(); cfgMarks(); }
+  else if (moved) for (const [k, row] of [...$("cfghl").children].entries()) row.classList.toggle("cur", k === i);
+  $("cfgpos").textContent = "line " + (i + 1) + " of " + CF.lines.length;
+  if (redraw || moved) cfgSide();
+}
+function cfgGoto(line) {
+  const ta = $("cfgta");
+  if (!ta || line < 0) return;
+  const at = CF.lines.slice(0, line).reduce((n, l) => n + l.length + 1, 0);
+  ta.focus(); ta.setSelectionRange(at + CF.lines[line].length, at + CF.lines[line].length);  // the end of the line, nothing selected
+  cfgCaret(false);
+  const row = $("cfghl").children[line];
+  if (row) row.scrollIntoView({ block: "center" });
+}
+function cfgSide() {
+  const side = $("cfgside");
+  if (!side) return;
+  side.hidden = CF.view !== "text" || !CF.orig;
+  if (side.hidden) return;
+  const p = CF.parsed[CF.cur] || { k: "blank" }, spec = p.k === "kv" ? cfgSpec(p.sec, p.key) : null;
+  let here;
+  if (p.k === "kv") {
+    const run = cfgRunning(p.sec, p.key), kind = spec ? { bool: "1 on, 0 off", int: "Whole number", num: "Number", choice: "One of " + (spec.opts || []).join(", "), text: "Text" }[spec.t] : null;
+    here = [h("div", { class: "sh" }, h("span", { class: "lg dim" }, "Key"), h("b", {}, p.key), h("span", {}, p.sec ? "[" + p.sec + "]" : "")),
+      spec ? h("p", {}, spec.label + (spec.hint ? ". " + spec.hint + "." : ".")) : h("p", { class: "none" }, "The dashboard doesn't know this key, so it's kept as you write it."),
+      spec ? h("dl", {}, h("dt", {}, "Takes"), h("dd", {}, kind), cfgRange(spec) ? [h("dt", {}, "Range"), h("dd", { class: "num" }, cfgRange(spec).slice(0, -1))] : null,
+        run ? [h("dt", {}, "Now"), h("dd", {}, run)] : null) : null];
+  } else if (p.k === "sec") here = [h("div", { class: "sh" }, h("span", { class: "lg dim" }, "Section"), h("b", {}, "[" + p.sec + "]")),
+    h("p", { class: CF.secs[p.sec] ? "" : "none" }, CF.secs[p.sec] || "A section the dashboard doesn't describe.")];
+  else here = [h("div", { class: "sh" }, h("span", { class: "lg dim" }, "Key")), h("p", { class: "none" }, "Put the cursor on a key to see what it takes.")];
+  const probs = [...CF.probs].sort((a, b) => a[0] - b[0]), errs = probs.filter(([, x]) => x.level === "E").length;
+  const at = (i) => h("span", { class: "at" }, "line " + (i + 1));
+  fill(side,
+    h("section", { class: "sbox", "aria-label": "The line at the cursor" }, here),
+    h("section", { class: "sbox", "aria-label": "Checks" },
+      h("div", { class: "sh" }, h("span", { class: "lg" }, "Checks"), h("span", { class: errs ? "bad" : "" },
+        errs ? errs + (errs === 1 ? " problem" : " problems") : probs.length ? probs.length + (probs.length === 1 ? " warning" : " warnings") : "all good")),
+      probs.length ? probs.slice(0, 30).map(([i, x]) => h("button", { class: "sitem", type: "button", onclick: () => cfgGoto(i) },
+        at(i), maskLine(CF.lines[i]).trim().slice(0, 60), h("span", { class: "why" + (x.level === "E" ? "" : " w") }, x.text)))
+        : h("p", { class: "none" }, "Every line is a [section], a comment or key=value, and the values the dashboard knows fit.")),
+    h("section", { class: "sbox", "aria-label": "Changes" },
+      h("div", { class: "sh" }, h("span", { class: "lg" }, "Changes"), h("span", {}, CF.changes.length ? String(CF.changes.length) : "none")),
+      CF.changes.length ? CF.changes.slice(0, 40).map((c) => h("button", { class: "sitem", type: "button", disabled: c.i < 0, onclick: () => cfgGoto(c.i) },
+        c.i >= 0 ? at(c.i) : null, c.key + " ",
+        c.old == null ? h("em", {}, "added") : h("s", {}, cfgShown(c.key, c.old)), c.val == null ? " taken out" : c.old == null ? " " + cfgShown(c.key, c.val) : " → " + cfgShown(c.key, c.val)))
+        : h("p", { class: "none" }, CF.dirty ? "Only comments or layout so far." : "Nothing yet.")));
+}
+function cfgBar() {
+  const bar = $("cfgbar");
+  if (!bar) return;
+  bar.hidden = !CF.orig;
+  if (!CF.orig) return;
+  const errs = cfgErrors(), n = CF.changes.length, can = !!(S && S.config && S.config.can), busy = S && restarting();
+  const bySec = [...new Set(CF.changes.map((c) => c.sec))].map((s) => s + " " + CF.changes.filter((c) => c.sec === s).length).join(" · ");
+  const why = errs.length ? (errs.length === 1 ? "Fix the problem on line " + (errs[0][0] + 1) + " to review." : "Fix the " + errs.length + " problems to review, from line " + (errs[0][0] + 1) + ".")
+    : !CF.dirty ? "Edit a value, or switch to Text to edit the file itself."
+    : !can ? "Writing needs the dmrdash-config helper; rerun install.sh."
+    : busy ? "DMRHost is restarting for another change; review once it's back."
+    : "Writing the file restarts DMRHost: off the air for a few seconds.";
+  fill(bar,
+    h("div", { class: "sum", "aria-live": "polite" }, h("b", {}, !CF.dirty ? "No changes" : n ? n + (n === 1 ? " change" : " changes") : "Layout changes", bySec ? h("small", {}, bySec) : null),
+      h("span", { class: "why" + (errs.length ? " bad" : "") }, why)),
+    h("button", { class: "key sm act" + (CF.discard ? " confirm" : ""), id: "cfgdiscard", type: "button", disabled: !CF.dirty, onclick: cfgDiscard }, CF.discard ? "Discard all?" : "Discard"),
+    h("button", { class: "key sm act go", id: "cfgreview", type: "button", disabled: !CF.dirty || errs.length > 0 || !can || busy, onclick: cfgReview }, "Review changes"));
+}
+function cfgDiscard() {
+  if (!CF.discard) {
+    CF.discard = true; cfgBar(); focusId("cfgdiscard");
+    setTimeout(() => { if (CF.discard) { CF.discard = false; cfgBar(); } }, 4000);
+    return;
+  }
+  CF.discard = false; CF.lines = CF.orig.slice(); cfgDerive(); cfgRender(); focusId("cfgback");
+}
+function cfgReload() {
+  if ($("cfgdlg").open) $("cfgdlg").close();
+  CF.orig = null; CF.err = null; CF.stale = false; cfgLoad();
+}
+
+/* review, and write */
+function cfgReview() {
+  CF.werr = null; CF.wstale = false;
+  cfgDlg(); $("cfgdlg").showModal(); focusId("cfgcancel");
+}
+function cfgDlg() {
+  const n = CF.changes.length, diff = lineDiff(CF.orig, CF.lines);
+  const layout = diff.filter(([op, i, j]) => op === "-" ? CF.origParsed[i].k !== "kv" : op === "+" && CF.parsed[j].k !== "kv").length;
+  const tabs = h("div", { class: "seg", role: "radiogroup", "aria-label": "Show" }, [[false, "Changes"], [true, "Line diff"]].map(([d, label]) =>
+    h("button", { type: "button", role: "radio", id: "cfgd-" + (d ? "d" : "c"), "aria-checked": String(CF.diff === d), tabindex: CF.diff === d ? 0 : -1,
+      onclick: () => cfgDiffView(d) }, label)));
+  tabs.addEventListener("keydown", (e) => { if ({ ArrowRight: 1, ArrowLeft: 1, ArrowUp: 1, ArrowDown: 1 }[e.key]) { e.preventDefault(); cfgDiffView(!CF.diff); } });
+  const secs = [...new Set(CF.changes.map((c) => c.sec))];
+  const list = h("div", { class: "chgs" }, secs.map((s) => [h("span", { class: "lg dim" }, s),
+    CF.changes.filter((c) => c.sec === s).map((c) => h("div", { class: "chg" }, h("span", {}, c.key),
+      h("span", {}, c.old == null ? [h("em", {}, "added"), " " + cfgShown(c.key, c.val)]
+        : [h("s", {}, cfgShown(c.key, c.old)), h("span", { class: "ar", "aria-label": "to" }, "→"), c.val == null ? h("em", {}, "taken out") : isSecret(c.key) ? "changed" : cfgShown(c.key, c.val)])))]),
+    layout ? h("p", { class: "more" }, layout + (layout === 1 ? " comment or layout line" : " comment or layout lines") + " changed too; Line diff shows them.") : null);
+  fill($("cfgdlg"), h("div", { class: "dlg-in" },
+    h("div", { class: "dhead" }, h("h3", { class: "lg", id: "cfgdlgt" }, n ? "Write " + n + (n === 1 ? " change" : " changes") + " to MMDVM.ini?" : "Write the changes to MMDVM.ini?"),
+      tabs, h("button", { class: "key sm act dx", type: "button", "aria-label": "Close", onclick: () => $("cfgdlg").close() }, icon("x"))),
+    h("div", { class: "dbody" },
+      CF.diff ? cfgDiff(diff) : list,
+      h("ul", { class: "cfgwhat" },
+        h("li", {}, "DMRHost restarts to read the file: ", h("b", {}, "off the air for a few seconds"), ", and a call in progress is cut."),
+        h("li", {}, "The file as it is now is kept as ", h("span", { class: "mono" }, (CF.path.split("/").pop() || "MMDVM.ini") + ".dmrdash-prev"), ", and Undo puts it back."),
+        h("li", {}, "If DMRHost isn't running again within 45 seconds, the previous file goes back by itself."))),
+    h("div", { class: "cfgfoot" },
+      CF.werr ? h("p", { class: "slotmsg err", role: "alert" }, CF.werr, CF.wstale ? h("button", { type: "button", onclick: cfgReload }, "Reload, dropping your changes") : null) : null,
+      h("p", { class: "fine" }, S.pin && !pinMem ? "The PIN is asked next." : ""),
+      h("button", { class: "key sm act", id: "cfgcancel", type: "button", onclick: () => $("cfgdlg").close() }, "Cancel"),
+      h("button", { class: "key sm act confirm", id: "cfgwrite", type: "button", disabled: CF.busy, onclick: cfgWrite }, CF.busy ? "Writing…" : "Write and restart DMRHost"))));
+}
+function cfgDiffView(d) {
+  CF.diff = d;
+  try { localStorage.setItem("dmrdash.cfgDiff", d ? "1" : "0"); } catch (e) {}
+  cfgDlg(); focusId(d ? "cfgd-d" : "cfgd-c");
+}
+// the changed lines with three lines either side, line numbers from before and after
+function cfgDiff(diff) {
+  const keep = new Set();
+  diff.forEach((d, k) => { if (d[0] !== " ") for (let x = k - 3; x <= k + 3; x++) keep.add(x); });
+  const out = [];
+  let gap = true;
+  diff.forEach(([op, i, j], k) => {
+    if (!keep.has(k)) { gap = true; return; }
+    if (gap) out.push(h("div", { class: "hh" }, "Line " + ((j >= 0 ? j : i) + 1)));
+    gap = false;
+    out.push(h("div", { class: "dl" + (op === "-" ? " del" : op === "+" ? " add" : "") },
+      h("span", { class: "no" }, i >= 0 ? i + 1 : ""), h("span", { class: "no" }, j >= 0 ? j + 1 : ""),
+      h("span", { class: "mk", "aria-hidden": "true" }, op === "-" ? "−" : op === "+" ? "+" : ""),
+      h("span", { class: "t" }, op === "-" ? h("span", { class: "vh" }, "Was: ") : op === "+" ? h("span", { class: "vh" }, "Now: ") : null,
+        maskLine(op === "-" ? CF.orig[i] : CF.lines[j]))));
+  });
+  return h("div", { class: "dif", "aria-label": "Line diff" }, out);
+}
+async function cfgWrite() {
+  if (CF.busy) return;
+  CF.busy = true; CF.werr = null; cfgDlg();
+  try {
+    const { ok, status, j } = await post({ action: "configWrite", text: CF.lines.join("\n"), base: CF.base });
+    if (ok) {
+      CF.busy = false; CF.orig = null; CF.lines = []; CF.find = "";
+      $("cfgdlg").close(); cfgLeave(); ui.msg[0] = null;
+      await poll(); return;
+    }
+    CF.werr = j.error || "Failed (HTTP " + status + ")"; CF.wstale = !!j.stale;
+  } catch (e) { CF.werr = "Can't reach the dashboard on the Pi"; }
+  CF.busy = false;
+  if ($("cfgdlg").open) { cfgDlg(); focusId("cfgcancel"); }
+}
+// how the last change went, once, as the page message; a written file can be undone from it
+function cfgOutcome() {
+  const l = S.config && S.config.last;
+  if (!("cfgSeen" in ui)) { ui.cfgSeen = l ? l.id : null; return; }  // from before this page loaded
+  if (!l || l.id === ui.cfgSeen) return;
+  ui.cfgSeen = l.id;
+  say(0, l.text, !l.ok, l.undo ? () => cfgUndo(l.id) : null);
+}
+async function cfgUndo(id) {
+  if (ui.busy) return;
+  if (!(await askConfirm("Put the previous MMDVM.ini back?",
+    "DMRHost restarts with the file as it was before your change, cutting any call in progress. It's off the air for a few seconds.",
+    "Put it back"))) return;
+  ui.busy = "cfgundo"; ui.msg[0] = { text: "Working…" }; render(true);
+  try {
+    const { ok, status, j } = await post({ action: "configUndo", id });
+    if (ok) ui.msg[0] = null; else say(0, j.error || "Failed (HTTP " + status + ")", true);
+  } catch (e) { say(0, "Can't reach the dashboard on the Pi", true); }
+  ui.busy = null; await poll();
+}
+
 /* ---------------- render loop ---------------- */
 function render(force) {
   if (!S) return;
@@ -1739,6 +2437,7 @@ function render(force) {
   renderGlobal(force);
   for (const n of [1, 2]) renderVfo(n, force);
   renderLog(); renderBer(force); renderStation(); renderEvents(); renderMaster(force); renderRfLevel(); renderPower(); renderUpdate();
+  cfgOutcome(); if ($("cfgbar")) cfgBar();
   if (focused && $(focused)) $(focused).focus();
 }
 
@@ -2354,6 +3053,14 @@ function setShown(k, show) {
 }
 L.hidden = hiddenSecs.has("log");
 syncSections();
+
+// the editor has its own address (#config), so Back closes it and a reload keeps it open
+addEventListener("hashchange", () => { if (location.hash === "#config") cfgShow(); else cfgHide(); });
+$("cfgdlg").addEventListener("close", () => focusId("cfgreview"));
+let cfgDown = false;
+$("cfgdlg").addEventListener("pointerdown", (e) => { cfgDown = e.target === $("cfgdlg"); });
+$("cfgdlg").addEventListener("click", (e) => { if (cfgDown && e.target === $("cfgdlg") && !CF.busy) $("cfgdlg").close(); cfgDown = false; });
+if (location.hash === "#config") cfgShow();
 
 poll(); setInterval(poll, 2000);
 </script>

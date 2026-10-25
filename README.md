@@ -35,6 +35,10 @@ talkgroups from your phone without logging in to SelfCare.
   login, without rebooting the Pi.
 - **Master switching:** pick another BrandMeister master under BM in the Hotspot menu, or type the ID of one BrandMeister's
   list leaves out. DMRHost restarts and logs in to it, and the dashboard confirms once it has.
+- **MMDVM.ini editor:** Config on the DMRHost row of the Hotspot menu opens DMRHost's config as a form, a row per
+  key with checks for the keys it knows, or as text with line marks for edits and problems. Review shows the
+  changes by key or as a line diff, and writing restarts DMRHost. The old file is kept, Undo puts it back, and it
+  goes back by itself if DMRHost doesn't come up with the new one. Passwords never reach the page.
 - **Live log:** an MMDVM-style tail of the hotspot log, kept in RAM.
 - **Updates:** the dmrdash row of the Hotspot menu says when a new version is out, and Update installs it.
   The dashboard restarts with it and the page reloads; the hotspot stays on the air. This needs the Debian
@@ -168,6 +172,15 @@ dmrdash is meant for your **home LAN**. It has no user accounts.
   a whole number from 1 to 100 (0 would stop the hotspot transmitting), changes only `RFLevel=` in the `[Modem]`
   section, and restarts the hotspot service. The PIN applies here too. To turn the feature off,
   run `sudo systemctl disable --now dmrdash-rflevel.path`.
+- **MMDVM.ini edits:** the same split, but wider. MMDVM.ini is usually readable only by root, so the dashboard
+  never opens it: it asks through `/var/lib/dmrdash/config.request`, and the root-run `dmrdash-config.path` and
+  `.service` units pass the request to `config.py`. To read, `config.py` leaves a copy with every password masked,
+  and the file's hash, in `/var/lib/dmrdash/config.view`. To write, it takes the edited text, still masked, and
+  applies it only to the exact file it was made against and only when every line is blank, a comment, a
+  `[section]` or `key=value`; each mask goes back to the password the file has. It keeps the old file as
+  `MMDVM.ini.dmrdash-prev` and restarts the hotspot service. Unlike the helpers above, this one lets the page set
+  **any** key, including `[DMR Network] Address=` and log paths, so set a PIN if anyone else is on your network.
+  To turn the feature off, run `sudo systemctl disable --now dmrdash-config.path`.
 - **Restarts and shut down:** the same split. The Hotspot menu's Restart and Shut down keys ask for
   confirmation, then the dashboard writes `reboot`, `poweroff` or `dmrhost` to `/var/lib/dmrdash/power.request`.
   The root-run `dmrdash-power.path` and `.service` units pass it to `power.py`, which accepts only those
@@ -213,6 +226,9 @@ dmrdash is meant for your **home LAN**. It has no user accounts.
   `journalctl -u dmrdash-master -n 20`, and that `[DMR Network] Address=` in MMDVM.ini changed.
 - **"DMRHost didn't come back at …% RF power":** check `systemctl status dmrdash-rflevel.path` and
   `journalctl -u dmrdash-rflevel -n 20`, and that MMDVM.ini has an `RFLevel=` line in `[Modem]`.
+- **"MMDVM.ini wasn't changed" or "the config helper didn't run":** check `systemctl status dmrdash-config.path`
+  and `journalctl -u dmrdash-config -n 20`. "The config helper didn't answer" means the
+  path unit isn't running. `"mmdvm_ini"` in `/etc/dmrdash.conf` sets another path for the file.
 - **The console says "session ended" right away:** check that `ssh_user` is a real account, that sshd is
   running and allows password logins (`PasswordAuthentication`), and `journalctl -u ssh -n 20`.
 - **Restart or Shut down does nothing:** check `systemctl status dmrdash-power.path` and

@@ -17,7 +17,7 @@ REPO=jcalado/dmrdash
 CONF=/etc/dmrdash.conf
 DEST=/opt/dmrdash
 UNIT=/etc/systemd/system/dmrdash.service
-HELPER_UNITS="dmrdash-rxoffset.path dmrdash-rxoffset.service dmrdash-master.path dmrdash-master.service dmrdash-power.path dmrdash-power.service dmrdash-rflevel.path dmrdash-rflevel.service"
+HELPER_UNITS="dmrdash-rxoffset.path dmrdash-rxoffset.service dmrdash-master.path dmrdash-master.service dmrdash-power.path dmrdash-power.service dmrdash-rflevel.path dmrdash-rflevel.service dmrdash-config.path dmrdash-config.service"
 
 say() { printf '%s\n' "$*"; }
 die() { printf 'dmrdash: %s\n' "$*" >&2; exit 1; }
@@ -42,7 +42,7 @@ if [ "$MODE" != install ]; then
   if packaged; then
     if [ "$MODE" = purge ]; then apt-get purge -y dmrdash; else apt-get remove -y dmrdash; fi
   fi
-  systemctl disable --now dmrdash dmrdash-rxoffset.path dmrdash-master.path dmrdash-power.path dmrdash-rflevel.path >/dev/null 2>&1 || true
+  systemctl disable --now dmrdash dmrdash-rxoffset.path dmrdash-master.path dmrdash-power.path dmrdash-rflevel.path dmrdash-config.path >/dev/null 2>&1 || true
   rm -f "$UNIT"
   for u in $HELPER_UNITS; do rm -f "/etc/systemd/system/$u"; done
   systemctl daemon-reload
@@ -171,16 +171,16 @@ else
   install -m 0644 "$SRC/dmrdash.py" "$SRC/index.html" "$DEST/"
   install -d -m 0755 "$DEST/vendor"
   install -m 0644 "$SRC/vendor/xterm.mjs" "$SRC/vendor/addon-fit.mjs" "$SRC/vendor/xterm.css" "$DEST/vendor/"
-  install -m 0755 "$SRC/rxoffset.py" "$SRC/rflevel.py" "$SRC/master.py" "$SRC/power.py" "$SRC/tui.py" "$DEST/"
+  install -m 0755 "$SRC/rxoffset.py" "$SRC/rflevel.py" "$SRC/master.py" "$SRC/power.py" "$SRC/config.py" "$SRC/tui.py" "$DEST/"
   ln -sf "$DEST/tui.py" /usr/local/bin/dmrdash-tui
   install -m 0644 "$SRC/dmrdash.service" "$UNIT"
   # root-run helpers: three edit MMDVM.ini as the dashboard asks (only RXOffset=, RFLevel= or the master Address=, then a DMRHost restart),
-  # the fourth restarts DMRHost, or restarts or shuts down the Pi
+  # a fourth applies the editor's line changes to MMDVM.ini (keeping the old file), the fifth restarts DMRHost, or restarts or shuts down the Pi
   for u in $HELPER_UNITS; do install -m 0644 "$SRC/$u" "/etc/systemd/system/$u"; done
   systemctl daemon-reload
   systemctl enable dmrdash >/dev/null 2>&1
   systemctl restart dmrdash
-  systemctl enable --now dmrdash-rxoffset.path dmrdash-master.path dmrdash-power.path dmrdash-rflevel.path >/dev/null 2>&1
+  systemctl enable --now dmrdash-rxoffset.path dmrdash-master.path dmrdash-power.path dmrdash-rflevel.path dmrdash-config.path >/dev/null 2>&1
 fi
 
 HOSTUNIT=$(conf unit)

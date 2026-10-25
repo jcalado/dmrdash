@@ -13,6 +13,7 @@ https://github.com/jcalado/dmrdash - MIT licence
 
 import base64
 import collections
+import difflib
 import fcntl
 import hashlib
 import hmac
@@ -38,7 +39,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 CONF_PATH = os.environ.get("DMRDASH_CONF", "/etc/dmrdash.conf")
 HERE = os.path.dirname(os.path.abspath(__file__))
 BM_API = "https://api.brandmeister.network/v2"
-VERSION = "1.6.0"
+VERSION = "1.7.0"
 USER_AGENT = "dmrdash/" + VERSION
 
 DEFAULTS = {
@@ -55,6 +56,7 @@ DEFAULTS = {
     "ssh_user": "",  # the Pi account the SSH link and console log in as
     "shell": False,  # the in-browser console; off unless set
     "update_check": True,  # look for a newer dmrdash in its apt repo every few hours
+    "mmdvm_ini": "/etc/MMDVM.ini",  # DMRHost's config, which the editor reads (the helpers read this setting too)
 }
 
 
@@ -255,6 +257,8 @@ def handle_line(ts, level, msg):
         STATE["modem"].update(status="opening", since=ts)
     elif msg.endswith(" is running"):
         STATE["host"].update(status="running", since=ts)
+        if CONFIG["id"] and ts >= CONFIG["requested"]:
+            CONFIG["running"] = ts
         if RESTART["requested"] and ts >= RESTART["requested"]:
             add_event(ts, "M", "DMRHost restarted")
             RESTART["requested"] = None
@@ -556,6 +560,12 @@ def bm_action(body):
         return update_check()
     elif action == "update":
         return request_update()
+    elif action == "configRead":
+        return config_read()
+    elif action == "configWrite":
+        return config_write(body)
+    elif action == "configUndo":
+        return config_undo(body)
     else:
         raise BMError("unknown action")
     bm_refresh()
@@ -802,7 +812,7 @@ def tune_watch():
 def tune_action(action, body):
     with LOCK:
         t, now = TUNE, time.time()
-        if action in ("tuneStart", "tryOffset") and (MASTER["target"] or RFLEVEL["target"] or RESTART["requested"]):
+        if action in ("tuneStart", "tryOffset") and (MASTER["target"] or RFLEVEL["target"] or RESTART["requested"] or CONFIG["id"]):
             raise BMError(restart_pending())
         if action == "tuneStart":
             tune_start(now)
@@ -967,6 +977,399 @@ def rflevel_seen(level):
         RFLEVEL.update(target=None, requested=None)
 
 
+# --- MMDVM.ini editor -------------------------------------------------------
+# MMDVM.ini is usually root's alone (0600), so the dashboard never opens it. The root-run
+# dmrdash-config.path/.service (config.py) does both sides: asked to read, it leaves a copy with its passwords
+# masked, and the file's hash, in config.view; asked to apply, it takes the edited (still masked) text with the
+# hash it was made from, puts the passwords back, keeps the old file as MMDVM.ini.dmrdash-prev, and restarts
+# DMRHost. The page reads through POST configRead, so the PIN applies. If DMRHost doesn't report running in
+# time, the dashboard asks config.py to put the old file back.
+
+CONFIG_PATH = os.path.join(STATE_DIR, "config.request")
+CONFIG_STATUS = os.path.join(STATE_DIR, "config.status")  # config.py's report on the request under way
+CONFIG_VIEW = os.path.join(STATE_DIR, "config.view")      # and its masked copy of the file, when asked to read
+CONFIG_READ_WAIT = 8      # seconds config.py has to answer a read
+CONFIG_MAX = 64 * 1024
+CONFIG_WAIT = 45          # DMRHost should be running with the new file within this
+CONFIG_HELPER_WAIT = 20   # and config.py should have reported within this
+MASK = "●" * 8       # stands in for a password on the page; config.py masks with the same
+SECRET_RE = re.compile(r"(?i)pass|secret|token|apikey")
+LINE_RE = re.compile(r"^(\s*([^=]*?)\s*=\s*)(.*)$")
+# every line config.py will write: blank, a # or ; comment, a [section], or key=value (the page checks the same)
+INI_LINE = re.compile(r"[ \t]*(?:[#;].*|\[[^\]]+\][ \t]*|[^\s=\[#;][^=]*=.*)?")
+
+CONFIG = {"id": None, "op": None, "requested": None, "hash": None, "written": False, "running": None,
+          "auto": False, "summary": ""}
+CONFIG_LAST = {}  # how the last change went, for the page's message (and its Undo)
+CONFIG_VIEWS = collections.OrderedDict()  # hash -> the masked lines config.py read, to compare edits against
+CONFIG_KICK = [lambda: None]  # tests run config.py here; on the Pi its path unit wakes on the request
+
+
+def _k(t, label, hint="", **kw):
+    return dict(kw, t=t, label=label, hint=hint)
+
+
+# What the form knows about DMRHost's keys: the type it checks (bool 0/1, int, num, choice), a label and a hint.
+# Keys not listed here are edited as plain text and never refused.
+CONFIG_KEYS = {
+    "General": {
+        "Callsign": _k("text", "Station callsign"),
+        "Id": _k("int", "DMR ID", "Your DMR ID, or the hotspot's 9-digit ID", min=1, max=999999999),
+        "Timeout": _k("int", "Transmit timeout", "The longest over before the hotspot cuts it", min=0, max=3600, unit="s"),
+        "Duplex": _k("bool", "Duplex", "On for a duplex hat, with both timeslots live"),
+        "ModeHang": _k("int", "Mode hang", min=0, max=3600, unit="s"),
+        "RFModeHang": _k("int", "RF mode hang", min=0, max=3600, unit="s"),
+        "NetModeHang": _k("int", "Network mode hang", min=0, max=3600, unit="s"),
+        "Display": _k("text", "Display", "None, or the display DMRHost drives"),
+        "Daemon": _k("bool", "Run as a daemon", "Off under systemd"),
+    },
+    "Info": {
+        "RXFrequency": _k("int", "RX frequency", "In Hz, as BrandMeister lists it", min=0, max=6000000000, unit="Hz"),
+        "TXFrequency": _k("int", "TX frequency", "In Hz", min=0, max=6000000000, unit="Hz"),
+        "Power": _k("int", "Power", "As BrandMeister lists it", min=0, max=1000, unit="W"),
+        "Latitude": _k("num", "Latitude", min=-90, max=90),
+        "Longitude": _k("num", "Longitude", min=-180, max=180),
+        "Height": _k("int", "Antenna height", min=-500, max=10000, unit="m"),
+        "Location": _k("text", "Location"),
+        "Description": _k("text", "Description"),
+        "URL": _k("text", "URL"),
+    },
+    "Log": {
+        "DisplayLevel": _k("int", "Console log level", "0 off, 1 debug to 6 fatal", min=0, max=6),
+        "FileLevel": _k("int", "File log level", "0 keeps the SD card quiet", min=0, max=6),
+        "FilePath": _k("text", "Log folder"),
+        "FileRoot": _k("text", "Log file name"),
+        "FileRotate": _k("bool", "Rotate log files"),
+    },
+    "CW Id": {
+        "Enable": _k("bool", "CW ID"),
+        "Time": _k("int", "Every", min=0, max=1440, unit="min"),
+        "Callsign": _k("text", "Callsign sent"),
+    },
+    "DMR Id Lookup": {
+        "File": _k("text", "DMR ID file", "Names for the IDs on the air"),
+        "Time": _k("int", "Reload every", min=0, max=8760, unit="h"),
+    },
+    "Modem": {
+        "Port": _k("text", "Serial device", "The hat's UART"),
+        "UARTPort": _k("text", "Serial device", "The hat's UART"),
+        "Protocol": _k("choice", "Link to the modem", opts=["uart", "udp", "i2c", "null"]),
+        "UARTSpeed": _k("int", "Serial speed", min=1200, max=4000000, unit="baud"),
+        "TXInvert": _k("bool", "Invert TX"),
+        "RXInvert": _k("bool", "Invert RX"),
+        "PTTInvert": _k("bool", "Invert PTT"),
+        "TXDelay": _k("int", "TX delay", min=0, max=255, unit="ms"),
+        "RXOffset": _k("int", "RX frequency trim", "Tune RX offset under RF BER sets this too", min=-100000, max=100000, unit="Hz"),
+        "TXOffset": _k("int", "TX frequency trim", min=-100000, max=100000, unit="Hz"),
+        "DMRDelay": _k("int", "DMR delay", min=0, max=255, unit="ms"),
+        "RXLevel": _k("num", "RX level", "Leave at 50 on an MMDVM_HS", min=0, max=100, unit="%"),
+        "TXLevel": _k("num", "TX level", "Leave at 50 on an MMDVM_HS", min=0, max=100, unit="%"),
+        "RXDCOffset": _k("int", "RX DC offset", min=-128, max=127),
+        "TXDCOffset": _k("int", "TX DC offset", min=-128, max=127),
+        "RFLevel": _k("num", "RF power", "RF power in the Hotspot menu sets this too", min=0, max=100, unit="%"),
+        "RSSIMappingFile": _k("text", "RSSI mapping file"),
+        "Trace": _k("bool", "Trace", "Floods the live log"),
+        "Debug": _k("bool", "Debug", "Floods the live log"),
+    },
+    "DMR": {
+        "Enable": _k("bool", "DMR"),
+        "Beacons": _k("bool", "Beacons"),
+        "BeaconInterval": _k("int", "Beacon every", min=0, max=3600, unit="s"),
+        "BeaconDuration": _k("int", "Beacon length", min=0, max=60, unit="s"),
+        "ColorCode": _k("int", "Colour code", "BrandMeister hotspots usually use 1", min=0, max=15),
+        "SelfOnly": _k("bool", "Only my ID", "Only your own DMR ID may key up the hotspot"),
+        "EmbeddedLCOnly": _k("bool", "Embedded LC only", "On drops talker aliases"),
+        "DumpTAData": _k("bool", "Log talker aliases"),
+        "CallHang": _k("int", "Call hang", min=0, max=60, unit="s"),
+        "TXHang": _k("int", "TX hang", min=0, max=60, unit="s"),
+        "ModeHang": _k("int", "Mode hang", min=0, max=3600, unit="s"),
+    },
+    "DMR Network": {
+        "Enable": _k("bool", "Network"),
+        "Address": _k("text", "Master", "The master picker in the Hotspot menu sets this too"),
+        "Port": _k("int", "Port", min=1, max=65535),
+        "Local": _k("int", "Local port", "0 picks one", min=0, max=65535),
+        "Password": _k("text", "Hotspot password", "BrandMeister's hotspot security password"),
+        "Jitter": _k("int", "Jitter buffer", min=0, max=1000, unit="ms"),
+        "Slot1": _k("bool", "Timeslot 1"),
+        "Slot2": _k("bool", "Timeslot 2"),
+        "ModeHang": _k("int", "Mode hang", min=0, max=3600, unit="s"),
+        "Options": _k("text", "Options", "Static TGs as BrandMeister options; the dashboard's talkgroups are easier"),
+        "Debug": _k("bool", "Debug"),
+    },
+}
+CONFIG_SECTIONS = {
+    "General": "Who the hotspot is and how long it holds a mode.",
+    "Info": "What the hotspot tells the network about itself.",
+    "Log": "What DMRHost logs, and where.",
+    "CW Id": "A Morse ident on the air.",
+    "DMR Id Lookup": "The file that puts names to DMR IDs.",
+    "Modem": "The MMDVM_HS hat: serial port, offsets, levels and RF power.",
+    "DMR": "DMR on the air: colour code, hang times and beacons.",
+    "DMR Network": "The link to the BrandMeister master.",
+}
+
+
+def can_config():
+    return os.path.exists(os.path.join(HERE, "config.py"))
+
+
+def ini_parse(lines):
+    """(section, key, value, line index, the part up to the value) for each key=value line."""
+    sec, out = None, []
+    for i, line in enumerate(lines):
+        s = line.strip()
+        if not s or s[0] in "#;":
+            continue
+        if s[0] == "[":
+            sec = s[1:-1] if s.endswith("]") and len(s) > 2 else sec
+            continue
+        m = LINE_RE.match(line)
+        if m and m.group(2):
+            out.append((sec, m.group(2), m.group(3).strip(), i, m.group(1)))
+    return out
+
+
+def value_problem(spec, v):
+    """Why a value doesn't fit its key, or None. An empty value is left alone."""
+    t, unit = spec["t"], (" " + spec["unit"]) if spec.get("unit") else ""
+    rng = f" from {spec.get('min')} to {spec.get('max')}{unit}"
+    if v == "":
+        return None
+    if t == "bool" and v not in ("0", "1"):
+        return "Use 1 for on, 0 for off"
+    if t == "int" and not (re.fullmatch(r"-?\d+", v) and spec["min"] <= int(v) <= spec["max"]):
+        return "A whole number" + rng
+    if t == "num" and not (re.fullmatch(r"-?\d+(\.\d+)?", v) and spec["min"] <= float(v) <= spec["max"]):
+        return "A number" + rng
+    if t == "choice" and v not in spec["opts"]:
+        return "One of " + ", ".join(spec["opts"])
+    return None
+
+
+def ini_problems(lines):
+    """[{line, level, text}]: E stops a save, W only warns. The page runs the same checks as you type."""
+    out, sec, seen = [], None, set()
+    for i, line in enumerate(lines):
+        s = line.strip()
+        if re.search(r"[\x00-\x08\x0a-\x1f\x7f]", line):
+            out.append({"line": i, "level": "E", "text": "This line has control characters in it"})
+            continue
+        if not INI_LINE.fullmatch(line):
+            out.append({"line": i, "level": "E", "text": "A section line is [Name]" if s[:1] == "[" else
+                        "The key before = is missing" if s[:1] == "=" else "Not a key=value line, a [section] or a # comment"})
+            continue
+        if not s or s[0] in "#;":
+            continue
+        if s[0] == "[":
+            sec = s[1:-1]
+            continue
+        m = LINE_RE.match(line)
+        if sec is None:
+            out.append({"line": i, "level": "E", "text": "This key is outside any [section]"})
+        else:
+            key = m.group(2)
+            if (sec, key) in seen:
+                out.append({"line": i, "level": "W", "text": f"{key} is set twice in [{sec}]; DMRHost uses only one of them"})
+            seen.add((sec, key))
+            spec = CONFIG_KEYS.get(sec, {}).get(key)
+            why = spec and value_problem(spec, m.group(3).strip())
+            if why:
+                out.append({"line": i, "level": "E", "text": why})
+    return out
+
+
+def ini_changes(old, new):
+    """[(section, key, old value or None, new value or None)]: keys added, changed or removed."""
+    a, b = {}, {}
+    for d, lines in ((a, old), (b, new)):
+        for sec, key, val, i, pre in ini_parse(lines):
+            d.setdefault((sec, key), val)
+    out = [(s, k, a.get((s, k)), v) for (s, k), v in b.items() if a.get((s, k)) != v]
+    return out + [(s, k, v, None) for (s, k), v in a.items() if (s, k) not in b]
+
+
+def config_summary(changes, layout):
+    words = [f"{k} changed" if SECRET_RE.search(k) and n is not None else f"{k} removed" if n is None else f"{k} {n}"
+             for s, k, o, n in changes]
+    if layout:
+        words.append("comments or layout")
+    return " · ".join(words[:4]) + (f" · +{len(words) - 4} more" if len(words) > 4 else "")
+
+
+def sha256(data):
+    return hashlib.sha256(data).hexdigest()
+
+
+class StaleError(BMError):
+    """The file changed on the Pi since the page read it."""
+
+
+def config_request(req):
+    """Under LOCK: hand a request to config.py. Its id."""
+    req.update(id=secrets.token_hex(8), ts=time.time())
+    try:
+        with open(os.open(CONFIG_PATH, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o640), "w") as f:
+            json.dump(req, f)
+    except OSError as e:
+        raise BMError(f"Can't write the MMDVM.ini request on the Pi: {e.strerror or e}")
+    return req["id"]
+
+
+def config_view():
+    """config.py's masked copy of MMDVM.ini, read fresh: {path, base, text}."""
+    if not can_config():
+        raise BMError("Editing MMDVM.ini needs the dmrdash-config helper; rerun install.sh")
+    with LOCK:
+        # a change config.py hasn't taken yet still sits in the request file
+        if CONFIG["id"] and not CONFIG["written"]:
+            raise BMError("Wait for the MMDVM.ini change to finish")
+        rid = config_request({"op": "read"})
+    CONFIG_KICK[0]()
+    end = time.time() + CONFIG_READ_WAIT
+    while True:
+        try:
+            with open(CONFIG_VIEW) as f:
+                view = json.load(f)
+            if isinstance(view, dict) and view.get("id") == rid:
+                break
+        except (OSError, ValueError):
+            pass
+        if time.time() > end:
+            raise BMError("The config helper didn't answer. Check it: systemctl status dmrdash-config.path")
+        time.sleep(0.15)
+    if view.get("error"):
+        raise BMError(str(view["error"]))
+    with LOCK:
+        CONFIG_VIEWS[view["base"]] = view["text"].split("\n")
+        while len(CONFIG_VIEWS) > 4:
+            CONFIG_VIEWS.popitem(last=False)
+    return view
+
+
+def config_read():
+    view = config_view()
+    return {"ok": True, "path": view["path"], "text": view["text"], "base": view["base"], "mask": MASK,
+            "keys": CONFIG_KEYS, "sections": CONFIG_SECTIONS, "can": can_config()}
+
+
+def config_send(req):
+    """Under LOCK: hand a change to config.py, and follow it until DMRHost runs again."""
+    config_request(req)
+    CONFIG.update(id=req["id"], op=req["op"], requested=req["ts"], hash=None, written=False, running=None,
+                  auto=False, summary="")
+
+
+def config_write(body):
+    text, base = body.get("text"), body.get("base")
+    if not isinstance(text, str) or not isinstance(base, str):
+        raise BMError("text and base are required")
+    if len(text.encode("utf-8", "replace")) > CONFIG_MAX:
+        raise BMError(f"That's over {CONFIG_MAX // 1024} KiB, too big for MMDVM.ini")
+    with LOCK:
+        old = CONFIG_VIEWS.get(base)
+    # read it again: an edit made against an older file is refused here, while the page still has the edits
+    if old is None or config_view()["base"] != base:
+        raise StaleError("MMDVM.ini changed on the Pi since you opened it. Reload it, then make your changes again.")
+    new = text.replace("\r\n", "\n").split("\n")
+    bad = [p for p in ini_problems(new) if p["level"] == "E"]
+    if bad:
+        raise BMError(f"Line {bad[0]['line'] + 1}: {bad[0]['text']}")
+    masked = {(sec, key) for sec, key, val, i, pre in ini_parse(old) if val == MASK}
+    for sec, key, val, i, pre in ini_parse(new):
+        if val == MASK and (sec, key) not in masked:
+            raise BMError(f"Type {key} in [{sec}] in full; only a password the file already has can stay hidden")
+    if new == old:
+        raise BMError("Nothing has changed")
+    ops = [o for o in difflib.SequenceMatcher(None, old, new, autojunk=False).get_opcodes() if o[0] != "equal"]
+    changes = ini_changes(old, new)
+    # changed lines that aren't key=value ones: comments, blank lines, sections
+    old_kv, new_kv = ({x[3] for x in ini_parse(lines)} for lines in (old, new))
+    layout = any(set(range(i1, i2)) - old_kv or set(range(j1, j2)) - new_kv for op, i1, i2, j1, j2 in ops)
+    with LOCK:
+        why = restart_pending()
+        if why:
+            raise BMError(why)
+        config_send({"op": "apply", "base": base, "text": "\n".join(new)})
+        CONFIG["summary"] = config_summary(changes, layout)
+    return {"ok": True, "changes": len(changes)}
+
+
+def config_undo(body):
+    with LOCK:
+        last = CONFIG_LAST
+        if not last.get("undo") or not last.get("hash") or body.get("id") != last.get("id"):
+            raise BMError("There's no MMDVM.ini change to undo")
+        why = restart_pending()
+        if why:
+            raise BMError(why)
+        config_send({"op": "restore", "base": last["hash"]})
+        last["undo"] = False
+    return {"ok": True}
+
+
+def config_status():
+    """Under LOCK: config.py's report on the request under way, or None."""
+    try:
+        with open(CONFIG_STATUS) as f:
+            st = json.load(f)
+    except (OSError, ValueError):
+        return None
+    return st if isinstance(st, dict) and st.get("id") == CONFIG["id"] else None
+
+
+def config_done(ok, why=""):
+    """Under LOCK: the change under way has landed, or failed (why)."""
+    c, now = dict(CONFIG), time.time()
+    CONFIG.update(id=None, op=None, requested=None, hash=None, written=False, running=None, auto=False, summary="")
+    if c["op"] == "apply":
+        text = f"Wrote MMDVM.ini: {c['summary']}. DMRHost is running with it." if ok else f"MMDVM.ini wasn't changed: {why}"
+    elif ok:
+        text = ("DMRHost didn't come back with the edited MMDVM.ini, so the previous file was put back" if c["auto"]
+                else "Put the previous MMDVM.ini back. DMRHost is running with it.")
+    else:
+        text = f"The previous MMDVM.ini didn't go back: {why}"
+    add_event(now, "M" if ok and not c["auto"] else "E", text)
+    CONFIG_LAST.clear()
+    CONFIG_LAST.update(id=c["id"], op=c["op"], ok=ok and not c["auto"], text=text, ts=now, hash=c["hash"],
+                       undo=ok and c["op"] == "apply")
+
+
+def config_tick(now):
+    """Under LOCK: follow the change under way, from config.py's report to DMRHost running again."""
+    c = CONFIG
+    if not c["id"]:
+        return
+    if not c["written"]:
+        st = config_status()
+        if st and st.get("state") == "failed":
+            return config_done(False, str(st.get("error") or "see journalctl -u dmrdash-config"))
+        if st and st.get("state") == "done":
+            c["written"] = True
+            c["hash"] = st.get("hash")  # the file as written: what an Undo or a put-back starts from
+        elif now - c["requested"] > CONFIG_HELPER_WAIT:
+            return config_done(False, "the config helper didn't run. Check it: systemctl status dmrdash-config.path")
+    if c["written"] and c["running"]:
+        return config_done(True)
+    if c["written"] and now - c["requested"] > CONFIG_WAIT:
+        if c["op"] == "apply" and c["hash"]:
+            # the edited file may be what keeps DMRHost down: put the one before it back
+            try:
+                config_send({"op": "restore", "base": c["hash"]})
+                CONFIG["auto"] = True
+            except BMError as e:
+                config_done(False, str(e))
+        else:
+            config_done(False, f"DMRHost didn't report running within {CONFIG_WAIT} seconds. Check it: journalctl -u " + CONF["unit"])
+
+
+def config_watch():
+    while True:
+        time.sleep(2)
+        with LOCK:
+            config_tick(time.time())
+
+
 # Every change above restarts DMRHost, so only one may be under way at a time.
 RESTART = {"requested": None}  # a plain DMRHost restart from the dashboard, until DMRHost says it is running
 RESTART_WAIT = 60
@@ -982,6 +1385,8 @@ def restart_pending():
         return f"Wait for the change to {RFLEVEL['target']}% RF power to finish"
     if RESTART["requested"]:
         return "DMRHost is already restarting"
+    if CONFIG["id"]:
+        return "Wait for the MMDVM.ini change to finish"
     return None
 
 
@@ -1361,6 +1766,7 @@ def snapshot():
             "master": {"can": can_master(), "current": current_master(), "target": MASTER["target"], "requested": MASTER["requested"]},
             "presets": [dict(p) for p in PRESETS],
             "update": update_state(),
+            "config": {"can": can_config(), "op": CONFIG["op"], "auto": CONFIG["auto"], "last": dict(CONFIG_LAST) or None},
         }
 
 
@@ -1477,14 +1883,14 @@ class Handler(BaseHTTPRequestHandler):
         if denied:
             return self.send(*denied)
         try:
-            length = min(int(self.headers.get("Content-Length") or 0), 4096)
+            length = min(int(self.headers.get("Content-Length") or 0), 4 * CONFIG_MAX)  # the editor sends all of MMDVM.ini
             body = json.loads(self.rfile.read(length) or b"{}")
             if not isinstance(body, dict):
                 raise TypeError
             with ACTION_LOCK:
                 result = bm_action(body)
         except BMError as e:
-            return self.send(400, {"error": str(e)})
+            return self.send(400, {"error": str(e), "stale": isinstance(e, StaleError)})
         except (ValueError, TypeError):
             return self.send(400, {"error": "invalid JSON"})
         self.send(200, result or {"ok": True})
@@ -1497,6 +1903,7 @@ def main():
     threading.Thread(target=master_watch, daemon=True).start()
     threading.Thread(target=restart_watch, daemon=True).start()
     threading.Thread(target=update_watch, daemon=True).start()
+    threading.Thread(target=config_watch, daemon=True).start()
     srv = ThreadingHTTPServer((CONF["listen"], int(CONF["port"])), Handler)
     srv.daemon_threads = True
     srv.serve_forever()

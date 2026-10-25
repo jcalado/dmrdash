@@ -1,0 +1,14 @@
+[Unit]
+Description=Apply an MMDVM.ini edit requested by the DMRHost dashboard
+# config.py applies only line changes made against the exact file it finds, keeps the old file beside it, and restarts DMRHost.
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 -I /opt/dmrdash/config.py
+NoNewPrivileges=yes
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+PrivateNetwork=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes

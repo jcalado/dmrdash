@@ -2,7 +2,7 @@
 set -e
 CONF=/etc/dmrdash.conf
 SOURCES=/etc/apt/sources.list.d/dmrdash.sources
-PATHS="dmrdash-rxoffset.path dmrdash-master.path dmrdash-power.path dmrdash-rflevel.path dmrdash-update.path"
+PATHS="dmrdash-rxoffset.path dmrdash-master.path dmrdash-power.path dmrdash-rflevel.path dmrdash-update.path dmrdash-config.path"
 if [ "$1" = configure ]; then
   id dmrdash >/dev/null 2>&1 || useradd --system --no-create-home --shell /usr/sbin/nologin dmrdash
   if [ ! -f "$CONF" ]; then
@@ -24,7 +24,7 @@ if [ "$1" = configure ]; then
   if grep -q '^Description=DMRHost dashboard' /etc/systemd/system/dmrdash.service 2>/dev/null; then
     rm -f /etc/systemd/system/dmrdash.service
   fi
-  for u in dmrdash-rxoffset.path dmrdash-rxoffset.service dmrdash-master.path dmrdash-master.service dmrdash-power.path dmrdash-power.service dmrdash-rflevel.path dmrdash-rflevel.service; do
+  for u in dmrdash-rxoffset.path dmrdash-rxoffset.service dmrdash-master.path dmrdash-master.service dmrdash-power.path dmrdash-power.service dmrdash-rflevel.path dmrdash-rflevel.service dmrdash-config.path dmrdash-config.service; do
     grep -q 'DMRHost dashboard' "/etc/systemd/system/$u" 2>/dev/null && rm -f "/etc/systemd/system/$u"
   done
   # enabling works offline too (an image build, a container); starting needs a running systemd

@@ -15,9 +15,9 @@ trap 'rm -rf "$PKG"' EXIT
 install -d "$PKG/DEBIAN" "$PKG/opt/dmrdash" "$PKG/opt/dmrdash/vendor" "$PKG/usr/bin" "$PKG/usr/lib/systemd/system" "$PKG/usr/share/doc/dmrdash" "$PKG/usr/share/dmrdash" "$PKG/usr/share/keyrings"
 install -m 0644 "$ROOT/dmrdash.py" "$ROOT/index.html" "$PKG/opt/dmrdash/"
 install -m 0644 "$ROOT/vendor/xterm.mjs" "$ROOT/vendor/addon-fit.mjs" "$ROOT/vendor/xterm.css" "$PKG/opt/dmrdash/vendor/"
-install -m 0755 "$ROOT/rxoffset.py" "$ROOT/rflevel.py" "$ROOT/master.py" "$ROOT/power.py" "$ROOT/update.py" "$ROOT/tui.py" "$PKG/opt/dmrdash/"
+install -m 0755 "$ROOT/rxoffset.py" "$ROOT/rflevel.py" "$ROOT/master.py" "$ROOT/power.py" "$ROOT/update.py" "$ROOT/config.py" "$ROOT/tui.py" "$PKG/opt/dmrdash/"
 ln -s /opt/dmrdash/tui.py "$PKG/usr/bin/dmrdash-tui"
-install -m 0644 "$ROOT/dmrdash.service" "$ROOT/dmrdash-rxoffset.path" "$ROOT/dmrdash-rxoffset.service" "$ROOT/dmrdash-master.path" "$ROOT/dmrdash-master.service" "$ROOT/dmrdash-power.path" "$ROOT/dmrdash-power.service" "$ROOT/dmrdash-rflevel.path" "$ROOT/dmrdash-rflevel.service" "$ROOT/dmrdash-update.path" "$ROOT/dmrdash-update.service" "$PKG/usr/lib/systemd/system/"
+install -m 0644 "$ROOT/dmrdash.service" "$ROOT/dmrdash-rxoffset.path" "$ROOT/dmrdash-rxoffset.service" "$ROOT/dmrdash-master.path" "$ROOT/dmrdash-master.service" "$ROOT/dmrdash-power.path" "$ROOT/dmrdash-power.service" "$ROOT/dmrdash-rflevel.path" "$ROOT/dmrdash-rflevel.service" "$ROOT/dmrdash-update.path" "$ROOT/dmrdash-update.service" "$ROOT/dmrdash-config.path" "$ROOT/dmrdash-config.service" "$PKG/usr/lib/systemd/system/"
 install -m 0644 "$ROOT/dmrdash.conf.example" "$ROOT/README.md" "$ROOT/NOTICE" "$ROOT/licenses/Saira-OFL.txt" "$ROOT/licenses/DSEG-OFL.txt" "$ROOT/licenses/xterm-LICENSE.txt" "$PKG/usr/share/doc/dmrdash/"
 install -m 0644 "$ROOT/LICENSE" "$PKG/usr/share/doc/dmrdash/copyright"
 # the apt source for updates (postinst writes it to /etc/apt/sources.list.d) and the key its releases are signed with
@@ -37,7 +37,7 @@ Homepage: https://github.com/jcalado/dmrdash
 Description: LAN dashboard for BrandMeister DMRHost hotspots
  Live calls per timeslot from the DMRHost journal, last heard, a RAM-only
  live log, static talkgroup management through the BrandMeister API, and an
- RF BER trend with RX offset tuning, BrandMeister master switching,
+ RF BER trend with RX offset tuning, BrandMeister master switching, an MMDVM.ini editor,
  restart / shut down of the Pi, and updates from its own apt repo.
  A terminal view, dmrdash-tui, shows the same over SSH.
  Python standard library only; nothing is written to the SD card in normal use.
