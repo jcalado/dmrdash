@@ -77,6 +77,8 @@ h2.lg { margin: 0; }
 .clock { display: inline-grid; justify-items: end; gap: 4px; font-family: var(--mono); font-variant-numeric: tabular-nums; }
 .clock .l { font: 600 14px/1 var(--mono); color: var(--white); }
 .clock .u { font: 500 11.5px/1 var(--mono); color: var(--legend-dim); }
+/* local time is UTC (Portugal in winter): one readout, tagged UTC on its baseline */
+.clock.one { grid-auto-flow: column; align-items: baseline; gap: 6px; }
 
 .alarm { display: flex; align-items: flex-start; gap: 12px; margin-top: 14px; padding: 10px 14px; border: 1px solid var(--tx);
   border-radius: 6px; background: var(--alarm-bg); color: var(--alarm-text); }
@@ -1911,8 +1913,10 @@ setInterval(() => {
   const d = new Date(Date.now() + skew * 1000);
   const c = $("clock");
   if (!c.firstChild) fill(c, h("span", { class: "l" }), h("span", { class: "u" }));
+  const one = d.getTimezoneOffset() === 0;
+  c.classList.toggle("one", one);
   c.firstChild.textContent = d.toLocaleTimeString([], { hourCycle: "h23" });
-  c.lastChild.textContent = d.toISOString().slice(11, 16) + " UTC";
+  c.lastChild.textContent = one ? "UTC" : d.toISOString().slice(11, 16) + " UTC";
 }, 250);
 initLogHead(); renderLogHead();
 // how many Last heard rows to draw: 5, 10 or 50 (all the Pi keeps), remembered per browser

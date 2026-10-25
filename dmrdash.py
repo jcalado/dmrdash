@@ -27,7 +27,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 CONF_PATH = os.environ.get("DMRDASH_CONF", "/etc/dmrdash.conf")
 HERE = os.path.dirname(os.path.abspath(__file__))
 BM_API = "https://api.brandmeister.network/v2"
-VERSION = "1.2.0"
+VERSION = "1.3.0"
 USER_AGENT = "dmrdash/" + VERSION
 
 DEFAULTS = {
