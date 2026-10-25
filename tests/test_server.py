@@ -62,6 +62,7 @@ class ServerTest(unittest.TestCase):
         self.assertTrue(s["pin"])
         self.assertFalse(s["can_manage"])
         self.assertNotIn("api_key", data.decode())
+        self.assertLess(s["booted"], s["now"])  # the Pi row's uptime, from /proc/uptime
 
     def test_log(self):
         status, data = self.req("GET", "/api/log?after=0")
@@ -274,6 +275,62 @@ class ServerTest(unittest.TestCase):
             else:
                 with self.assertRaises(SystemExit):
                     ms.read_request()
+
+    def test_dmrhost_restart(self):
+        pin = {"X-Dmrdash-Pin": "4321"}
+        status, data = self.req("POST", "/api/bm", {"action": "power", "what": "dmrhost"}, pin)
+        self.assertEqual(status, 200, data)
+        with open(dmrdash.POWER_PATH) as f:
+            self.assertEqual(f.read(), "dmrhost\n")
+        asked = dmrdash.RESTART["requested"]
+        self.assertEqual(json.loads(self.req("GET", "/api/state")[1])["restart"], asked)
+        # one DMRHost restart at a time, whichever way it is asked for
+        for body in ({"action": "power", "what": "dmrhost"}, {"action": "rflevel", "pct": 50}, {"action": "master", "id": 2141}):
+            status, data = self.req("POST", "/api/bm", body, pin)
+            self.assertEqual((status, json.loads(data)["error"]), (400, "DMRHost is already restarting"), body)
+        dmrdash.handle_line(asked - 5, "M", "DMRHost-20260101 is running")  # from before the request
+        self.assertEqual(dmrdash.RESTART["requested"], asked)
+        dmrdash.handle_line(asked + 3, "M", "DMRHost-20260101 is running")
+        self.assertIsNone(dmrdash.RESTART["requested"])
+        self.assertEqual(dmrdash.STATE["events"][0]["text"], "DMRHost restarted")
+
+    def test_rflevel_request(self):
+        pin = {"X-Dmrdash-Pin": "4321"}
+        for line in ("Modem Parameters", "    RX Offset: 0Hz", "    RF Level: 100.0%"):
+            dmrdash.handle_line(3000, "I", line)
+        s = json.loads(self.req("GET", "/api/state")[1])
+        self.assertEqual(s["rflevel"], {"level": 100.0, "can": True, "target": None})
+        for pct in (0, 101, "50", 50.5, True, None, 100):  # 100: already running at it
+            self.assertEqual(self.req("POST", "/api/bm", {"action": "rflevel", "pct": pct}, pin)[0], 400, pct)
+        self.assertFalse(os.path.exists(dmrdash.RFLEVEL_PATH))
+        self.assertEqual(self.req("POST", "/api/bm", {"action": "rflevel", "pct": 25}, pin)[0], 200)
+        with open(dmrdash.RFLEVEL_PATH) as f:
+            self.assertEqual(f.read(), "25\n")
+        self.assertEqual(self.req("POST", "/api/bm", {"action": "tuneStart"}, pin)[0], 400)
+        dmrdash.handle_line(3010, "I", "    RF Level: 25.0%")
+        self.assertIsNone(dmrdash.RFLEVEL["target"])
+        self.assertEqual(dmrdash.STATE["events"][0]["text"], "RF power now 25%")
+
+    def test_rflevel_helper_edits_only_modem_rflevel(self):
+        spec = importlib.util.spec_from_file_location("rflevel", os.path.join(ROOT, "rflevel.py"))
+        rl = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(rl)
+        ini = os.path.join(TMP, "MMDVM-rf.ini")
+        with open(ini, "w") as f:
+            f.write("[General]\nRFLevel=7\n[Modem]\nRXOffset=0\nRFLevel=100\n# DMRTXLevel=50\n[DMR]\nColorCode=1\n")
+        self.assertTrue(rl.set_level(ini, 25))
+        with open(ini) as f:
+            self.assertEqual(f.read(), "[General]\nRFLevel=7\n[Modem]\nRXOffset=0\nRFLevel=25\n# DMRTXLevel=50\n[DMR]\nColorCode=1\n")
+        self.assertFalse(rl.set_level(ini, 25))
+        rl.REQUEST = os.path.join(TMP, "rflevel.test")
+        for raw, ok in (("25\n", True), ("0", False), ("101", False), ("-5", False), ("25.5", False), ("25 x", False)):
+            with open(rl.REQUEST, "w") as f:
+                f.write(raw)
+            if ok:
+                self.assertEqual(rl.read_request(), 25)
+            else:
+                with self.assertRaises(SystemExit):
+                    rl.read_request()
 
     def test_power_helper_checks_request(self):
         spec = importlib.util.spec_from_file_location("power", os.path.join(ROOT, "power.py"))

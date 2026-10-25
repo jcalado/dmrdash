@@ -27,7 +27,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 CONF_PATH = os.environ.get("DMRDASH_CONF", "/etc/dmrdash.conf")
 HERE = os.path.dirname(os.path.abspath(__file__))
 BM_API = "https://api.brandmeister.network/v2"
-VERSION = "1.1.1"
+VERSION = "1.2.0"
 USER_AGENT = "dmrdash/" + VERSION
 
 DEFAULTS = {
@@ -169,6 +169,7 @@ STATE = {
     # RX offset DMRHost last reported, so the page can show the uplink trend across offset changes
     "rfber": collections.deque(maxlen=200),
     "rxoffset": None,
+    "rflevel": None,  # RF power in %, as DMRHost logged it at startup
 }
 
 BM = {"device": None, "profile": None, "talkgroups": {}, "masters": [], "updated": None,
@@ -185,6 +186,7 @@ RE_WATCHDOG = re.compile(r"network watchdog has expired(?:, ([\d.]+) seconds, (\
 RE_ALIAS = re.compile(r'Talker Alias "(.*)"$')
 RE_REJECT = re.compile(r"RF user (\d+) rejected(?: for using TG (\d+))?$")
 RE_RXOFFSET = re.compile(r"^\s*RX Offset: (-?\d+)Hz$")
+RE_RFLEVEL = re.compile(r"^\s*RF Level: ([\d.]+)%$")
 RE_LOGLINE = re.compile(r"^DMRHost: ([DMIWEF]): \S+ \S+ (.*)$")
 RE_PARAM_ADDR = re.compile(r"^\s+Address: (\S+)$")
 LOG_SECTION = [None]  # the "... Parameters" block DMRHost is listing at startup
@@ -223,6 +225,11 @@ def handle_line(ts, level, msg):
         STATE["rxoffset"] = int(m.group(1))
         tune_offset_seen(ts, STATE["rxoffset"])
         return
+    m = RE_RFLEVEL.match(msg)
+    if m:
+        STATE["rflevel"] = float(m.group(1))
+        rflevel_seen(STATE["rflevel"])
+        return
     if msg.endswith(" Parameters"):
         LOG_SECTION[0] = msg
     elif LOG_SECTION[0] == "DMR Network Parameters" and RE_PARAM_ADDR.match(msg):
@@ -234,6 +241,9 @@ def handle_line(ts, level, msg):
         STATE["modem"].update(status="opening", since=ts)
     elif msg.endswith(" is running"):
         STATE["host"].update(status="running", since=ts)
+        if RESTART["requested"] and ts >= RESTART["requested"]:
+            add_event(ts, "M", "DMRHost restarted")
+            RESTART["requested"] = None
     elif "exited on receipt of" in msg or msg.endswith("is exiting"):
         STATE["host"].update(status="stopped", since=ts)
         STATE["network"].update(status="down", since=ts)
@@ -524,6 +534,8 @@ def bm_action(body):
         return request_master(body.get("id"))
     elif action == "power":
         return request_power(body.get("what"))
+    elif action == "rflevel":
+        return request_rflevel(body.get("pct"))
     else:
         raise BMError("unknown action")
     bm_refresh()
@@ -770,8 +782,8 @@ def tune_watch():
 def tune_action(action, body):
     with LOCK:
         t, now = TUNE, time.time()
-        if action in ("tuneStart", "tryOffset") and MASTER["target"]:
-            raise BMError("Wait for the move to the new master to finish")
+        if action in ("tuneStart", "tryOffset") and (MASTER["target"] or RFLEVEL["target"] or RESTART["requested"]):
+            raise BMError(restart_pending())
         if action == "tuneStart":
             tune_start(now)
         elif action == "tuneStop":
@@ -841,10 +853,8 @@ def request_master(mid):
     if not can_master():
         raise BMError("Switching masters needs the dmrdash-master helper; rerun install.sh")
     with LOCK:
-        if MASTER["target"]:
-            raise BMError(f"Already moving to master {MASTER['target']}")
-        if TUNE["state"] in ("running", "done"):
-            raise BMError("Finish the RX offset tuning run first")
+        if restart_pending():
+            raise BMError(restart_pending())
         if current_master() == mid and STATE["network"]["status"] == "connected":
             raise BMError(f"The hotspot is already on master {mid}")
         try:
@@ -879,21 +889,96 @@ def can_power():
 
 
 def request_power(what):
-    if what not in ("reboot", "poweroff"):
-        raise BMError("what must be reboot or poweroff")
+    """reboot or poweroff the Pi, or restart just DMRHost ("dmrhost")."""
+    if what not in ("reboot", "poweroff", "dmrhost"):
+        raise BMError("what must be reboot, poweroff or dmrhost")
     if not can_power():
-        raise BMError("Restart and shut down need the dmrdash-power helper; rerun install.sh")
+        raise BMError("Restarts and shut down need the dmrdash-power helper; rerun install.sh")
     with LOCK:
-        if TUNE["state"] in ("running", "done"):
-            raise BMError("Finish the RX offset tuning run first")
-        if MASTER["target"]:
-            raise BMError("Wait for the move to the new master to finish")
-    try:
-        with open(POWER_PATH, "w") as f:
-            f.write(what + "\n")
-    except OSError as e:
-        raise BMError(f"Can't write the power request on the Pi: {e.strerror or e}")
+        if restart_pending():
+            raise BMError(restart_pending())
+        try:
+            with open(POWER_PATH, "w") as f:
+                f.write(what + "\n")
+        except OSError as e:
+            raise BMError(f"Can't write the power request on the Pi: {e.strerror or e}")
+        if what == "dmrhost":
+            RESTART["requested"] = time.time()
     return {"ok": True}
+
+
+# --- RF power ---------------------------------------------------------------
+# The RX offset split once more: the dashboard writes a percentage to a request file, and the root-run
+# dmrdash-rflevel.path/.service (rflevel.py) sets [Modem] RFLevel= and restarts DMRHost. DMRHost
+# logs "RF Level: N%" as it starts, which is how the change is seen to have landed.
+
+RFLEVEL_PATH = os.path.join(STATE_DIR, "rflevel.request")
+RFLEVEL = {"target": None, "requested": None}
+
+
+def can_rflevel():
+    return os.path.exists(os.path.join(HERE, "rflevel.py"))
+
+
+def request_rflevel(pct):
+    # 0 would stop the modem transmitting at all; rflevel.py refuses it too
+    if not isinstance(pct, int) or isinstance(pct, bool) or not 1 <= pct <= 100:
+        raise BMError("The RF power is a whole percentage from 1 to 100")
+    if not can_rflevel():
+        raise BMError("RF power changes need the dmrdash-rflevel helper; rerun install.sh")
+    with LOCK:
+        if restart_pending():
+            raise BMError(restart_pending())
+        if STATE["rflevel"] == pct:
+            raise BMError(f"DMRHost already runs at {pct}% RF power")
+        try:
+            with open(RFLEVEL_PATH, "w") as f:
+                f.write(f"{pct}\n")
+        except OSError as e:
+            raise BMError(f"Can't write the RF power request on the Pi: {e.strerror or e}")
+        RFLEVEL.update(target=pct, requested=time.time())
+    return {"ok": True}
+
+
+def rflevel_seen(level):
+    """Under LOCK, with the RF level DMRHost just logged."""
+    if RFLEVEL["target"] is not None and level == RFLEVEL["target"]:
+        add_event(time.time(), "M", f"RF power now {RFLEVEL['target']}%")
+        RFLEVEL.update(target=None, requested=None)
+
+
+# Every change above restarts DMRHost, so only one may be under way at a time.
+RESTART = {"requested": None}  # a plain DMRHost restart from the dashboard, until DMRHost says it is running
+RESTART_WAIT = 60
+
+
+def restart_pending():
+    """Under LOCK: why DMRHost can't be restarted again yet, or None."""
+    if TUNE["state"] in ("running", "done"):
+        return "Finish the RX offset tuning run first"
+    if MASTER["target"]:
+        return f"Wait for the move to master {MASTER['target']} to finish"
+    if RFLEVEL["target"] is not None:
+        return f"Wait for the change to {RFLEVEL['target']}% RF power to finish"
+    if RESTART["requested"]:
+        return "DMRHost is already restarting"
+    return None
+
+
+def restart_watch():
+    """Report an RF power change or a DMRHost restart that never landed, and stop waiting for it."""
+    while True:
+        time.sleep(5)
+        now = time.time()
+        with LOCK:
+            if RFLEVEL["target"] is not None and now - RFLEVEL["requested"] > APPLY_WAIT:
+                add_event(now, "E", f"DMRHost didn't come back at {RFLEVEL['target']}% RF power. "
+                          "Check the helper: journalctl -u dmrdash-rflevel")
+                RFLEVEL.update(target=None, requested=None)
+            if RESTART["requested"] and now - RESTART["requested"] > RESTART_WAIT:
+                add_event(now, "E", f"DMRHost didn't report running within {RESTART_WAIT} seconds of the restart. "
+                          "Check it: journalctl -u dmrdash-power -u " + CONF["unit"])
+                RESTART["requested"] = None
 
 
 # --- HTTP -------------------------------------------------------------------
@@ -909,6 +994,15 @@ def local_ip():
         return None
 
 
+def booted():
+    """When the Pi booted, from /proc/uptime; None where there is no /proc."""
+    try:
+        with open("/proc/uptime") as f:
+            return time.time() - float(f.read().split()[0])
+    except (OSError, ValueError, IndexError):
+        return None
+
+
 def snapshot():
     with LOCK:
         names = BM["talkgroups"]
@@ -919,6 +1013,7 @@ def snapshot():
             "device_id": CONF["device_id"],
             "hostname": os.uname().nodename,
             "ip": local_ip(),
+            "booted": booted(),
             "can_manage": bool(CONF["api_key"]),
             "can_power": can_power(),
             "pin": bool(CONF["pin"]),
@@ -942,6 +1037,8 @@ def snapshot():
             },
             "tg_names": names,
             "masters": BM["masters"],
+            "rflevel": {"level": STATE["rflevel"], "can": can_rflevel(), "target": RFLEVEL["target"]},
+            "restart": RESTART["requested"],
             "master": {"can": can_master(), "current": current_master(), "target": MASTER["target"], "requested": MASTER["requested"]},
             "presets": [dict(p) for p in PRESETS],
         }
@@ -1036,6 +1133,7 @@ def main():
     threading.Thread(target=poll_bm, daemon=True).start()
     threading.Thread(target=tune_watch, daemon=True).start()
     threading.Thread(target=master_watch, daemon=True).start()
+    threading.Thread(target=restart_watch, daemon=True).start()
     srv = ThreadingHTTPServer((CONF["listen"], int(CONF["port"])), Handler)
     srv.daemon_threads = True
     srv.serve_forever()

@@ -1,5 +1,5 @@
 [Unit]
-Description=Watch for restart and shut down requests from the DMRHost dashboard
+Description=Watch for restart and shut down requests (Pi or DMRHost) from the DMRHost dashboard
 
 [Path]
 PathChanged=/var/lib/dmrdash/power.request

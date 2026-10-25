@@ -1,0 +1,9 @@
+[Unit]
+Description=Watch for RF power changes from the DMRHost dashboard
+
+[Path]
+PathChanged=/var/lib/dmrdash/rflevel.request
+Unit=dmrdash-rflevel.service
+
+[Install]
+WantedBy=paths.target

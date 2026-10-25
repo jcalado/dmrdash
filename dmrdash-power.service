@@ -1,6 +1,6 @@
 [Unit]
-Description=Restart or shut down the Pi as requested by the DMRHost dashboard
-# power.py takes one word from the request, "reboot" or "poweroff", and passes it to systemctl.
+Description=Restart or shut down the Pi, or restart DMRHost, as requested by the DMRHost dashboard
+# power.py takes one word from the request: "reboot" or "poweroff" goes to systemctl, "dmrhost" restarts the hotspot unit.
 
 [Service]
 Type=oneshot

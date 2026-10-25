@@ -58,13 +58,21 @@ h2.lg { margin: 0; }
 .hbtn svg.ic { width: 12px; height: 12px; color: var(--legend-dim); transition: transform .15s ease-out; }
 .hbtn[aria-expanded="true"] svg.ic { transform: rotate(180deg); }
 @media (prefers-reduced-motion: reduce) { .hbtn svg.ic { transition: none; } }
-.health-pop { right: auto; left: 0; width: min(340px, calc(100vw - 32px)); }  /* opens from the lamp, which wraps to the left on a phone */
-.hrow { display: grid; grid-template-columns: 9px 9ch minmax(0, 1fr); gap: 4px 10px; align-items: center; padding: 8px 4px; }
+/* opens from the lamp: left-aligned on a phone, where the lamp wraps under the callsign */
+.health-pop { right: auto; left: 0; width: min(380px, calc(100vw - 32px)); max-height: calc(100vh - 110px); overflow-y: auto; }
+@media (min-width: 821px) { .health-pop { left: auto; right: 0; } }  /* the lamp sits right of centre, so the popover hangs leftward */
+/* each part of the hotspot, with the control that acts on it: an inline key on the name line, or a row of its own under the detail */
+.hrow { display: grid; grid-template-columns: 9px 9ch minmax(0, 1fr) auto; gap: 4px 10px; align-items: center; padding: 8px 4px; }
 .hrow + .hrow { border-top: 1px solid var(--row); }
 .hrow .nm { font-weight: 600; font-size: 13px; }
 .hrow .st { font-weight: 600; font-size: 13px; color: var(--legend); }
 .hrow.warn .st { color: var(--busy); } .hrow.fail .st { color: var(--fail-text); }
-.hrow .dt { grid-column: 2 / -1; font: 12px/1.3 var(--mono); color: var(--legend-dim); overflow-wrap: anywhere; }
+.hrow .dt { grid-column: 2 / -1; grid-row: 2; font: 12px/1.3 var(--mono); color: var(--legend-dim); overflow-wrap: anywhere; }
+.hrow .act { grid-column: 2 / -1; grid-row: 3; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-width: 0; margin-top: 4px; }
+.hrow .act.inl { grid-column: 4; grid-row: 1; margin: -4px 0; }
+.hrow .act:empty { display: none; }
+.hrow .act .none { margin: 0; }
+.act .pending { display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--busy); }
 /* local time over UTC, one readout */
 .clock { display: inline-grid; justify-items: end; gap: 4px; font-family: var(--mono); font-variant-numeric: tabular-nums; }
 .clock .l { font: 600 14px/1 var(--mono); color: var(--white); }
@@ -154,13 +162,13 @@ h2.lg { margin: 0; }
   text-decoration: underline; text-decoration-color: var(--rule-2); text-underline-offset: 3px; }
 .evhead .link:hover:not(:disabled) { color: var(--white); text-decoration-color: var(--legend); }
 .evhead .link:disabled { opacity: .45; cursor: default; text-decoration: none; }
-/* restart / shut down the Pi, at the foot of the station popover */
-.power { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; padding: 10px 4px 0; border-top: 1px solid var(--row); }
-.power h3 { margin: 0 auto 0 0; }
-.power .none { margin: 0; flex-basis: 100%; }
-/* the BrandMeister master DMRHost logs in to, just above the Pi row */
+/* the BrandMeister master DMRHost logs in to, under the BM row */
 .master select { flex: 1 1 150px; min-width: 0; height: 34px; border-radius: 6px; border: 1px solid var(--legend); background: var(--panel-2); color: var(--white); font: 13px/1 var(--sans); padding: 0 8px; }
 .master select:disabled { opacity: .45; }
+/* RF power presets, under the Modem row: the radiogroup reads like the Rows selector, sized for a thumb */
+.rfpow .seg button { min-width: 44px; height: 30px; font: 600 12.5px/1 var(--mono); }
+.rfpow .seg button:disabled { opacity: .45; cursor: default; }
+.rfpow .seg button:disabled:hover { color: var(--legend-dim); }
 .master input { flex: 0 0 8ch; width: 8ch; height: 34px; border-radius: 6px; border: 1px solid var(--legend); background: var(--panel-2); color: var(--white); font: 14px/1 var(--mono); padding: 0 8px; }
 /* live log: a RAM-only tail of the DMRHost journal */
 .livelog { padding-bottom: 0; overflow: hidden; }
@@ -429,6 +437,7 @@ button.key:disabled { opacity: .45; cursor: default; }
 .key.act { color: var(--legend); font-weight: 600; letter-spacing: .03em; }
 .key.act.warn:hover:not(:disabled) { border-color: var(--tx); color: var(--tx-text); }
 .key.act.confirm { border-color: var(--tx); background: var(--danger-bg); color: #fff; }
+.key.sq { width: 30px; padding: 0; justify-content: center; }
 svg.ic { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
 .addform { display: inline-flex; gap: 6px; align-items: center; flex-wrap: wrap; }
 .addform input { width: 7.5em; height: 34px; border-radius: 6px; border: 1px solid var(--legend); background: var(--lcd); color: var(--lcd-ink);
@@ -515,7 +524,12 @@ dt { color: var(--legend-dim); } dd { margin: 0; overflow-wrap: anywhere; } dd.n
     <div class="station"><b id="call">DMRHost</b><span id="devid"></span></div>
     <div class="more health" id="health" data-slot="5">
       <button class="hbtn" id="hbtn" type="button" aria-expanded="false" aria-controls="pop5"></button>
-      <div class="pop down health-pop" id="pop5" hidden><h3 class="lg">Hotspot</h3><div id="hrows"></div></div>
+      <div class="pop down health-pop" id="pop5" hidden><h3 class="lg">Hotspot</h3>
+        <div class="hrow" id="hr0"><i class="lamp"></i><span class="nm"></span><span class="st"></span><div class="act inl" id="hostrow"></div><span class="dt"></span></div>
+        <div class="hrow" id="hr1"><i class="lamp"></i><span class="nm"></span><span class="st"></span><span class="dt"></span><div class="act" id="rfpow"></div></div>
+        <div class="hrow" id="hr2"><i class="lamp"></i><span class="nm"></span><span class="st"></span><span class="dt"></span><div class="act master" id="master"></div></div>
+        <div class="hrow" id="hr3"><i class="lamp"></i><span class="nm">Pi</span><span class="st"></span><div class="act inl" id="power"></div><span class="dt"></span></div>
+      </div>
     </div>
     <div class="clock" id="clock"></div>
     <div class="more presets" id="presets" data-slot="0"></div>
@@ -525,8 +539,6 @@ dt { color: var(--legend-dim); } dd { margin: 0; overflow-wrap: anywhere; } dd.n
         <h3 class="lg">Station</h3><dl id="station"></dl>
         <h3 class="lg">Sections</h3><ul class="secs" id="secs"></ul>
         <div class="evhead"><h3 class="lg">Events</h3><button class="link" id="evclear" type="button">Clear</button></div><ul class="ev" id="events"></ul>
-        <div class="power master" id="master"></div>
-        <div class="power" id="power"></div>
       </div>
     </div>
   </header>
@@ -671,6 +683,8 @@ function health() {
       (net === "login failed" ? "The master rejected the hotspot password. " : "Retrying the master since " + ago(S.network.since) + " ago. ")
       + "RF still works locally; nothing reaches the network."];
   if (S.master && S.master.target) alarm = ["Moving to master " + S.master.target, "DMRHost restarts and logs in again; the link is down for a few seconds."];
+  if (S.rflevel && S.rflevel.target != null) alarm = ["Setting RF power to " + S.rflevel.target + "%", "DMRHost restarts with it; off the air for a few seconds."];
+  if (S.restart) alarm = ["Restarting DMRHost", "Off the air for a few seconds while it starts and logs in again."];
   if (ui.power) alarm = ui.power.what === "reboot"
     ? ["Restarting the hotspot", "Off the air for a minute or so. This page reconnects by itself."]
     : ["Shutting down the hotspot", "Once the Pi's green LED stops flashing it is safe to unplug. Plug it back in to start it again."];
@@ -691,8 +705,16 @@ function renderStrip() {
   btn.className = "hbtn " + worst[1];
   btn.setAttribute("aria-label", "Hotspot status: " + leds.map((l) => l[0] + " " + l[2]).join(", ") + (offline ? " (no update from the Pi)" : ""));
   fill(btn, h("i", { class: "lamp " + worst[1] }), h("span", { class: "lg" }, why && !offline ? worst[0] : "Hotspot"), why ? h("span", { class: "why" }, why) : null, icon("chev"));
-  fill($("hrows"), leds.map(([l, c, word, dt]) => h("div", { class: "hrow " + c },
-    h("i", { class: "lamp " + c }), h("span", { class: "nm" }, l), h("span", { class: "st" }, word === "ok" ? "OK" : word[0].toUpperCase() + word.slice(1)), h("span", { class: "dt" }, dt))));
+  // rows are updated in place, never rebuilt, so a poll can't close the master list or eat a typed ID
+  const pi = [S.booted ? "Up " + ago(S.booted) : "", (S.hostname || "") + (S.ip ? " · " + S.ip : "")];
+  [...leds, ["Pi", offline ? "warn" : "on", pi[0], pi[1]]].forEach(([l, c, word, dt], i) => {
+    const row = $("hr" + i);
+    row.className = "hrow " + c;
+    row.querySelector(".lamp").className = "lamp " + c;
+    row.querySelector(".nm").textContent = l;
+    row.querySelector(".st").textContent = word === "ok" ? "OK" : word && word[0].toUpperCase() + word.slice(1);
+    row.querySelector(".dt").textContent = dt;
+  });
   const al = $("alarm");
   al.hidden = !alarm;
   if (alarm) fill(al, icon("warn"), h("span", {}, h("b", {}, alarm[0]), " · ", alarm[1]));
@@ -1186,13 +1208,10 @@ function renderStation() {
     ["Link", d.statusText ? d.statusText + (curMaster() ? " · master " + curMaster() : "") : (S.bm.error ? "BrandMeister API unreachable" : "…")],
     ["RX / TX", d.rx ? (d.rx + " / " + d.tx + " MHz").replace(/\.0000/g, ".000") : "—"],
     ["Colour code", d.colorcode != null ? d.colorcode : "—"],
-    ["Modem", modemName() || "—"],
-    ["DMRHost", hostVersion() + (S.host.since ? " · up " + ago(S.host.since) : "")],
-    ["Address", (S.hostname || "") + (S.ip ? " · " + S.ip : "")],
     ["Dashboard", "dmrdash " + (S.version || "") + (S.pin ? " · PIN on" : "")],
     ["Last seen", d.last_seen ? new Date(d.last_seen.replace(" ", "T") + "Z").toLocaleTimeString([], { hourCycle: "h23" }) + " by BM" : "—"],
   ];
-  const numeric = new Set(["RX / TX", "Colour code", "Address", "Last seen"]);
+  const numeric = new Set(["RX / TX", "Colour code", "Last seen"]);
   fill($("station"), rows.map(([k, v]) => [h("dt", {}, k), h("dd", { class: numeric.has(k) ? "num" : null }, String(v))]));
 }
 
@@ -1225,7 +1244,7 @@ function renderEvents() {
 const modemName = () => (S.modem.description || "").replace(/^MMDVM_HS_Dual_Hat-v/, "MMDVM_HS dual hat · fw ").replace(/ 20\d{6}.*$/, "");
 const hostVersion = () => (S.host.version || "").replace(/^DMRHost-/, "").replace(/-DMRHost$/, "");
 
-/* Station details and events live behind the (i) key in the strip; hotspot health behind the lamp. */
+/* Station details and events live behind the (i) key in the strip; hotspot health, and what can be done about it, behind the lamp. */
 function syncInfo() {
   $("pop3").hidden = !ui.menu[3];
   $("ibtn").setAttribute("aria-expanded", String(ui.menu[3]));
@@ -1234,14 +1253,24 @@ function syncInfo() {
 }
 
 /* ---------------- restart / shut down ---------------- */
+// DMRHost is restarting for one of the dashboard's changes: anything else that restarts it waits
+const restarting = () => !!S.restart || !!(S.master && S.master.target) || !!(S.rflevel && S.rflevel.target != null);
 function renderPower() {
-  const off = !!ui.busy || !!ui.power;
-  fill($("power"), h("h3", { class: "lg" }, "Pi"), S.can_power
+  const off = !!ui.busy || !!ui.power || restarting();
+  fill($("hostrow"), S.can_power
+    ? h("button", { class: "key sm act", id: "pwhost", type: "button", disabled: off, onclick: () => powerAct("dmrhost") }, icon("restart"), S.restart ? "Restarting…" : "Restart")
+    : null);
+  // shut down is icon-only to fit the Pi's name line; its label is in aria-label, the tooltip and the confirmation
+  $("power").classList.toggle("inl", S.can_power);
+  fill($("power"), S.can_power
     ? [h("button", { class: "key sm act", id: "pwreboot", type: "button", disabled: off, onclick: () => powerAct("reboot") }, icon("restart"), "Restart"),
-       h("button", { class: "key sm act warn", id: "pwoff", type: "button", disabled: off, onclick: () => powerAct("poweroff") }, icon("power"), "Shut down")]
-    : h("p", { class: "none" }, "Restart and shut down need the dmrdash-power helper; rerun install.sh."));
+       h("button", { class: "key sm act warn sq", id: "pwoff", type: "button", disabled: off, "aria-label": "Shut down", title: "Shut down", onclick: () => powerAct("poweroff") }, icon("power"))]
+    : h("p", { class: "none" }, "Restarts and shut down need the dmrdash-power helper; rerun install.sh."));
 }
 function askPower(what) {
+  if (what === "dmrhost") return askConfirm("Restart DMRHost?",
+    "Only the hotspot software restarts, not the Pi. It cuts any call in progress and is off the air for a few seconds while it logs in to the master again.",
+    "Restart DMRHost");
   const reboot = what === "reboot";
   return askConfirm(reboot ? "Restart the hotspot?" : "Shut down the hotspot?", reboot
     ? "The Pi reboots, cutting any call in progress. DMRHost is off the air for about a minute, and this page reconnects by itself."
@@ -1261,12 +1290,42 @@ function askConfirm(title, why, verb) {
 }
 async function powerAct(what) {
   if (ui.busy || ui.power) return;
-  ui.menu[3] = false; syncInfo();
-  if (!(await askPower(what))) { focusId("ibtn"); return; }
+  ui.menu[5] = false; syncInfo();
+  if (!(await askPower(what))) { focusId("hbtn"); return; }
   ui.busy = "power"; ui.msg[0] = { text: "Working…" }; render(true);
   try {
     const { ok, status, j } = await post({ action: "power", what });
-    if (ok) { ui.power = { what, down: false }; ui.msg[0] = null; }
+    if (ok && what === "dmrhost") ui.msg[0] = null;  // the server tracks it until DMRHost reports running
+    else if (ok) { ui.power = { what, down: false }; ui.msg[0] = null; }
+    else say(0, j.error || "Failed (HTTP " + status + ")", true);
+  } catch (e) { say(0, "Can't reach the dashboard on the Pi", true); }
+  ui.busy = null; render(true);
+}
+
+/* ---------------- RF power ---------------- */
+const RF_LEVELS = [10, 25, 50, 100];
+function renderRfLevel() {
+  const r = S.rflevel || {}, box = $("rfpow");
+  if (!r.can) return fill(box, h("p", { class: "none" }, "RF power changes need the dmrdash-rflevel helper; rerun install.sh."));
+  const off = !!ui.busy || !!ui.power || restarting(), now = r.target != null ? r.target : r.level;
+  // a level set by hand in MMDVM.ini that isn't a preset still shows, so the group never looks unset
+  const levels = now != null && !RF_LEVELS.includes(now) ? [...RF_LEVELS, now].sort((a, b) => a - b) : RF_LEVELS;
+  fill(box, h("span", { class: "lg dim", "aria-hidden": "true" }, "RF power"),
+    h("div", { class: "seg", role: "radiogroup", "aria-label": "RF power" }, levels.map((pct) =>
+      h("button", { type: "button", role: "radio", "aria-checked": String(pct === now), disabled: off,
+        onclick: () => { if (pct !== now) rfLevelAct(pct); } }, pct + "%"))),
+    r.target != null ? h("span", { class: "pending" }, h("i", { class: "lamp warn" }), "Restarting…") : null);
+}
+async function rfLevelAct(pct) {
+  if (ui.busy || ui.power) return;
+  ui.menu[5] = false; syncInfo();
+  if (!(await askConfirm("Set RF power to " + pct + "%?",
+    "DMRHost restarts with the new level, cutting any call in progress. It's off the air for a few seconds.",
+    "Set " + pct + "%"))) { focusId("hbtn"); return; }
+  ui.busy = "rflevel"; ui.msg[0] = { text: "Working…" }; render(true);
+  try {
+    const { ok, status, j } = await post({ action: "rflevel", pct });
+    if (ok) ui.msg[0] = null;  // the alarm banner says it's changing until DMRHost reports the new level
     else say(0, j.error || "Failed (HTTP " + status + ")", true);
   } catch (e) { say(0, "Can't reach the dashboard on the Pi", true); }
   ui.busy = null; render(true);
@@ -1286,16 +1345,16 @@ function renderMaster(force) {
   let list = S.masters || [];
   // BrandMeister's list leaves some masters out (2681, say); the current one is always offered
   if (cur && list.length && !list.some((x) => x.id === cur)) list = [...list, { id: cur, country: "" }].sort((a, b) => a.id - b.id);
-  const note = (text) => fill(box, h("h3", { class: "lg" }, "Master"), h("p", { class: "none" }, text));
+  const note = (text) => fill(box, h("p", { class: "none" }, text));
   if (m.target) return note("Moving to " + m.target + ". DMRHost is restarting and logging in again…");
   if (!m.can) return note("Switching masters needs the dmrdash-master helper; rerun install.sh.");
   if (!list.length) return note(S.bm.error ? "No master list: BrandMeister API unreachable." : "Fetching the master list…");
   if (ui.mpick !== "other" && !list.some((x) => x.id === ui.mpick)) ui.mpick = list.some((x) => x.id === cur) ? cur : list[0].id;
-  const off = !!ui.busy || !!ui.power, other = ui.mpick === "other";
+  const off = !!ui.busy || !!ui.power || restarting(), other = ui.mpick === "other";
   // "Other master ID…" takes four digits typed in, for a master the list leaves out
   const pick = () => other ? (/^[1-9]\d{3}$/.test(ui.mother || "") ? Number(ui.mother) : null) : ui.mpick;
   const go = h("button", { class: "key sm act", id: "mgo", type: "button", disabled: off || !pick() || pick() === cur, onclick: () => masterAct(pick()) }, "Switch");
-  fill(box, h("h3", { class: "lg" }, "Master"),
+  fill(box,
     h("select", { id: "msel", "aria-label": "BrandMeister master", disabled: off, onchange: (e) => {
         ui.mpick = e.target.value === "other" ? "other" : Number(e.target.value); render(true); if (ui.mpick === "other") focusId("mother"); } },
       list.map((x) => h("option", { value: x.id, selected: x.id === ui.mpick }, masterName(x) + (x.id === cur ? " (now)" : ""))),
@@ -1308,10 +1367,10 @@ function renderMaster(force) {
 async function masterAct(id) {
   if (ui.busy || ui.power) return;
   const x = (S.masters || []).find((m) => m.id === id) || { id, country: "" };
-  ui.menu[3] = false; syncInfo();
+  ui.menu[5] = false; syncInfo();
   if (!(await askConfirm("Move to master " + id + "?",
     "DMRHost restarts to log in to " + id + (x.country ? " (" + region(x.country) + ")" : "") + ", cutting any call in progress. The link is down for a few seconds. Static talkgroups stay with the hotspot.",
-    "Move"))) { focusId("ibtn"); return; }
+    "Move"))) { focusId("hbtn"); return; }
   ui.busy = "master"; ui.msg[0] = { text: "Working…" }; render(true);
   try {
     const { ok, status, j } = await post({ action: "master", id });
@@ -1467,7 +1526,7 @@ function render(force) {
   renderStrip();
   renderGlobal(force);
   for (const n of [1, 2]) renderVfo(n, force);
-  renderLog(); renderBer(force); renderStation(); renderEvents(); renderMaster(force); renderPower();
+  renderLog(); renderBer(force); renderStation(); renderEvents(); renderMaster(force); renderRfLevel(); renderPower();
   if (focused && $(focused)) $(focused).focus();
 }
 
