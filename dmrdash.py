@@ -17,6 +17,7 @@ import difflib
 import fcntl
 import hashlib
 import hmac
+import ipaddress
 import itertools
 import json
 import os
@@ -1001,7 +1002,9 @@ INI_LINE = re.compile(r"[ \t]*(?:[#;].*|\[[^\]]+\][ \t]*|[^\s=\[#;][^=]*=.*)?")
 CONFIG = {"id": None, "op": None, "requested": None, "hash": None, "written": False, "running": None,
           "auto": False, "summary": ""}
 CONFIG_LAST = {}  # how the last change went, for the page's message (and its Undo)
-CONFIG_VIEWS = collections.OrderedDict()  # hash -> the masked lines config.py read, to compare edits against
+# token -> the file's hash and the masked lines config.py read, to compare edits against. The page only ever gets the
+# token: with the masked text, the file's hash would let anyone guess the hidden passwords offline.
+CONFIG_VIEWS = collections.OrderedDict()
 CONFIG_KICK = [lambda: None]  # tests run config.py here; on the Pi its path unit wakes on the request
 
 
@@ -1240,16 +1243,16 @@ def config_view():
         time.sleep(0.15)
     if view.get("error"):
         raise BMError(str(view["error"]))
-    with LOCK:
-        CONFIG_VIEWS[view["base"]] = view["text"].split("\n")
-        while len(CONFIG_VIEWS) > 4:
-            CONFIG_VIEWS.popitem(last=False)
     return view
 
 
 def config_read():
-    view = config_view()
-    return {"ok": True, "path": view["path"], "text": view["text"], "base": view["base"], "mask": MASK,
+    view, token = config_view(), secrets.token_urlsafe(16)
+    with LOCK:
+        CONFIG_VIEWS[token] = {"base": view["base"], "lines": view["text"].split("\n")}
+        while len(CONFIG_VIEWS) > 4:
+            CONFIG_VIEWS.popitem(last=False)
+    return {"ok": True, "path": view["path"], "text": view["text"], "base": token, "mask": MASK,
             "keys": CONFIG_KEYS, "sections": CONFIG_SECTIONS, "can": can_config()}
 
 
@@ -1267,10 +1270,11 @@ def config_write(body):
     if len(text.encode("utf-8", "replace")) > CONFIG_MAX:
         raise BMError(f"That's over {CONFIG_MAX // 1024} KiB, too big for MMDVM.ini")
     with LOCK:
-        old = CONFIG_VIEWS.get(base)
+        seen = CONFIG_VIEWS.get(base)
     # read it again: an edit made against an older file is refused here, while the page still has the edits
-    if old is None or config_view()["base"] != base:
+    if seen is None or config_view()["base"] != seen["base"]:
         raise StaleError("MMDVM.ini changed on the Pi since you opened it. Reload it, then make your changes again.")
+    old = seen["lines"]
     new = text.replace("\r\n", "\n").split("\n")
     bad = [p for p in ini_problems(new) if p["level"] == "E"]
     if bad:
@@ -1290,7 +1294,7 @@ def config_write(body):
         why = restart_pending()
         if why:
             raise BMError(why)
-        config_send({"op": "apply", "base": base, "text": "\n".join(new)})
+        config_send({"op": "apply", "base": seen["base"], "text": "\n".join(new)})
         CONFIG["summary"] = config_summary(changes, layout)
     return {"ok": True, "changes": len(changes)}
 
@@ -1766,7 +1770,7 @@ def snapshot():
             "master": {"can": can_master(), "current": current_master(), "target": MASTER["target"], "requested": MASTER["requested"]},
             "presets": [dict(p) for p in PRESETS],
             "update": update_state(),
-            "config": {"can": can_config(), "op": CONFIG["op"], "auto": CONFIG["auto"], "last": dict(CONFIG_LAST) or None},
+            "config": {"can": can_config(), "op": CONFIG["op"], "auto": CONFIG["auto"], "last": {k: v for k, v in CONFIG_LAST.items() if k != "hash"} or None},
         }
 
 
@@ -1792,6 +1796,14 @@ VENDOR = {"/vendor/xterm.mjs": "text/javascript; charset=utf-8", "/vendor/addon-
           "/vendor/xterm.css": "text/css; charset=utf-8"}
 
 
+def is_ip(host):
+    try:
+        ipaddress.ip_address(host)
+        return True
+    except ValueError:
+        return False
+
+
 class Handler(BaseHTTPRequestHandler):
     server_version = "dmrdash"
 
@@ -1803,7 +1815,7 @@ class Handler(BaseHTTPRequestHandler):
         allowed = {"localhost", "dmrhost", "dmrhost.local", os.uname().nodename.lower(),
                    os.uname().nodename.lower() + ".local"} | {h.lower() for h in CONF["allowed_hosts"]}
         # IP literals are fine; unknown hostnames are refused (DNS rebinding guard)
-        return host in allowed or re.fullmatch(r"[\d.]+|[0-9a-f:]+", host or "x") is not None
+        return host in allowed or is_ip(host)
 
     def send(self, code, body, ctype="application/json", cache="no-store"):
         data = body if isinstance(body, bytes) else json.dumps(body).encode()

@@ -73,6 +73,9 @@ class ServerTest(unittest.TestCase):
     def test_unknown_host_refused(self):
         self.assertEqual(self.req("GET", "/api/state", headers={"Host": "evil.example"})[0], 403)
         self.assertEqual(self.req("GET", "/api/state", headers={"Host": "192.168.1.5:8080"})[0], 200)
+        self.assertEqual(self.req("GET", "/api/state", headers={"Host": "[fe80::1]:8080"})[0], 200)
+        self.assertEqual(self.req("GET", "/api/state", headers={"Host": "deadbeef:8080"})[0], 403)  # hex, but not an address
+        self.assertEqual(self.req("GET", "/api/state", headers={"Host": "1.2.3.4.5"})[0], 403)
 
     def test_post_needs_custom_header(self):
         status, _ = self.req("POST", "/api/bm", {"action": "clearEvents"}, {"X-Dmrdash": "0"})
@@ -553,7 +556,8 @@ class ServerTest(unittest.TestCase):
         self.assertIn("\nPassword = " + dmrdash.MASK + "\n", j["text"])
         self.assertNotIn("\r", j["text"])
         with open(ini, "rb") as f:
-            self.assertEqual(j["base"], dmrdash.sha256(f.read()))
+            digest = dmrdash.sha256(f.read())
+        self.assertNotIn(digest, data.decode())  # with the masked text, the file's hash would let the password be guessed
         self.assertEqual(j["keys"]["DMR"]["ColorCode"]["max"], 15)
 
     def test_config_write_undo(self):
@@ -593,6 +597,7 @@ class ServerTest(unittest.TestCase):
         s = json.loads(self.req("GET", "/api/state")[1])["config"]
         self.assertIsNone(s["op"])
         self.assertEqual((s["last"]["ok"], s["last"]["undo"]), (True, True))
+        self.assertNotIn("hash", s["last"])  # /api/state needs no PIN
         self.assertEqual(s["last"]["text"], "Wrote MMDVM.ini: Timeout 240 · RXOffset -400 · comments or layout. DMRHost is running with it.")
 
         status, data = self.req("POST", "/api/bm", {"action": "configUndo", "id": "nope"}, pin)
