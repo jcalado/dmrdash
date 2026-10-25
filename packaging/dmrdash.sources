@@ -1,7 +1,7 @@
 # dmrdash updates, written by the dmrdash package (and removed with it).
 # To stop them, add the line "Enabled: no": the package keeps it on upgrades.
 Types: deb
-URIs: https://jcalado.github.io/dmrdash
+URIs: https://jcalado.com/dmrdash
 Suites: stable
 Components: main
 Signed-By: /usr/share/keyrings/dmrdash-archive-keyring.gpg

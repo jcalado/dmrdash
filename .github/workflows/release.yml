@@ -37,7 +37,7 @@ jobs:
           path: dist/dmrdash_*_all.deb
           if-no-files-found: error
 
-  # The apt repo, on the gh-pages branch that GitHub Pages serves as https://jcalado.github.io/dmrdash.
+  # The apt repo, on the gh-pages branch that GitHub Pages serves as https://jcalado.com/dmrdash.
   # After the release, so the repo never offers a version without one.
   apt:
     needs: release

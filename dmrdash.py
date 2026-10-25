@@ -1006,7 +1006,7 @@ def restart_watch():
 # dmrdash-update.path/.service (update.py), which runs apt, so apt checks the repo's signature. update.py
 # writes how it went to update.status; the package restarts this process partway through, with the new version.
 
-APT_REPO = "https://jcalado.github.io/dmrdash"
+APT_REPO = "https://jcalado.com/dmrdash"
 PACKAGES_URL = APT_REPO + "/dists/stable/main/binary-all/Packages"
 DPKG_LIST = "/var/lib/dpkg/info/dmrdash.list"  # there when installed as a package, which updates need
 UPDATE_PATH = os.path.join(STATE_DIR, "update.request")

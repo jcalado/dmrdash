@@ -175,7 +175,7 @@ dmrdash is meant for your **home LAN**. It has no user accounts.
   or restarts the hotspot service named by `"unit"`.
   These need the PIN when one is set. To turn them off, run `sudo systemctl disable --now dmrdash-power.path`.
 - **Updates:** the same split. The dashboard only reads the newest version from the repo's package list
-  (`https://jcalado.github.io/dmrdash`). Update writes `dmrdash` to `/var/lib/dmrdash/update.request`, and the
+  (`https://jcalado.com/dmrdash`). Update writes `dmrdash` to `/var/lib/dmrdash/update.request`, and the
   root-run `dmrdash-update.path` and `.service` units pass it to `update.py`. That script accepts only that word,
   ignores a request older than a minute, and runs `apt-get install --only-upgrade dmrdash`. apt checks the
   repo's signature, so the dashboard can't make it install anything else. It needs the PIN when one is set. To turn

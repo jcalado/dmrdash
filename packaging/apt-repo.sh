@@ -1,7 +1,8 @@
 #!/bin/sh
 # Add packages to dmrdash's apt repo and sign it: packaging/apt-repo.sh REPO_DIR DEB...
 #
-# REPO_DIR is a checkout of the gh-pages branch, which GitHub Pages serves as https://jcalado.github.io/dmrdash.
+# REPO_DIR is a checkout of the gh-pages branch, which GitHub Pages serves as https://jcalado.com/dmrdash
+# (straight at the custom domain: jcalado.github.io/dmrdash redirects through plain http, which apt refuses).
 # Needs apt-ftparchive (apt-utils) and gpg with the signing key; APT_KEY_ID picks the key when there are several.
 # Keeps the newest $KEEP versions in the pool, so going back a release stays possible.
 #
@@ -27,8 +28,8 @@ rm -rf dists
 for a in $ARCHS; do
   # an arch: all package belongs in every architecture's index: apt reads its own, the dashboard reads binary-all
   mkdir -p "dists/stable/main/binary-$a"
+  # uncompressed only: it is small, and Cloudflare in front of Pages caches .gz files, which could go stale beside a new InRelease
   apt-ftparchive --arch "$a" packages pool > "dists/stable/main/binary-$a/Packages"
-  gzip -9nk "dists/stable/main/binary-$a/Packages"
 done
 apt-ftparchive \
   -o APT::FTPArchive::Release::Origin=dmrdash -o APT::FTPArchive::Release::Label=dmrdash \
