@@ -38,7 +38,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 CONF_PATH = os.environ.get("DMRDASH_CONF", "/etc/dmrdash.conf")
 HERE = os.path.dirname(os.path.abspath(__file__))
 BM_API = "https://api.brandmeister.network/v2"
-VERSION = "1.5.1"
+VERSION = "1.6.0"
 USER_AGENT = "dmrdash/" + VERSION
 
 DEFAULTS = {
@@ -54,6 +54,7 @@ DEFAULTS = {
     "pin": "",  # when set, talkgroup changes need it (sent as X-Dmrdash-Pin)
     "ssh_user": "",  # the Pi account the SSH link and console log in as
     "shell": False,  # the in-browser console; off unless set
+    "update_check": True,  # look for a newer dmrdash in its apt repo every few hours
 }
 
 
@@ -551,6 +552,10 @@ def bm_action(body):
         return request_rflevel(body.get("pct"))
     elif action == "shellTicket":
         return shell_ticket()
+    elif action == "updateCheck":
+        return update_check()
+    elif action == "update":
+        return request_update()
     else:
         raise BMError("unknown action")
     bm_refresh()
@@ -996,6 +1001,153 @@ def restart_watch():
                 RESTART["requested"] = None
 
 
+# --- updates ----------------------------------------------------------------
+# The dashboard only looks: it reads the newest version in dmrdash's apt repo. Installing it is the root-run
+# dmrdash-update.path/.service (update.py), which runs apt, so apt checks the repo's signature. update.py
+# writes how it went to update.status; the package restarts this process partway through, with the new version.
+
+APT_REPO = "https://jcalado.github.io/dmrdash"
+PACKAGES_URL = APT_REPO + "/dists/stable/main/binary-all/Packages"
+DPKG_LIST = "/var/lib/dpkg/info/dmrdash.list"  # there when installed as a package, which updates need
+UPDATE_PATH = os.path.join(STATE_DIR, "update.request")
+UPDATE_STATUS = os.path.join(STATE_DIR, "update.status")
+UPDATE_EVERY = 6 * 3600
+UPDATE_WAIT = 60  # the helper should have started within this
+UPDATE_RUN_MAX = 900  # dmrdash-update.service's TimeoutStartSec: a "running" report older than this was cut short
+
+UPDATE = {"latest": None, "checked": None, "error": None, "requested": None, "failed": None,
+          "status": None, "status_mtime": None}
+
+
+def version_key(v):
+    return tuple(int(x) for x in re.findall(r"\d+", v or ""))
+
+
+def packaged():
+    return os.path.exists(DPKG_LIST)
+
+
+def can_update():
+    return packaged() and os.path.exists(os.path.join(HERE, "update.py"))
+
+
+def update_available():
+    """Under LOCK."""
+    return bool(UPDATE["latest"]) and version_key(UPDATE["latest"]) > version_key(VERSION)
+
+
+def update_check():
+    """Read the newest dmrdash version from the repo's package index."""
+    req = urllib.request.Request(PACKAGES_URL, headers={"User-Agent": USER_AGENT})
+    try:
+        with urllib.request.urlopen(req, timeout=15) as r:
+            text = r.read(1 << 20).decode("utf-8", "replace")
+        versions = []
+        for stanza in text.split("\n\n"):
+            m = re.search(r"(?m)^Version: (\S+)$", stanza)
+            if m and re.search(r"(?m)^Package: dmrdash$", stanza):
+                versions.append(m.group(1))
+        if not versions:
+            raise ValueError("no dmrdash package in the repo")
+        latest, error = max(versions, key=version_key), None
+    except (urllib.error.URLError, OSError, ValueError) as e:
+        latest, error = None, f"Can't check for updates: {getattr(e, 'reason', None) or e}"
+    with LOCK:
+        was = update_available()
+        UPDATE.update(checked=time.time(), error=error)
+        if latest:
+            UPDATE["latest"] = latest
+            if update_available() and not was:
+                add_event(time.time(), "M", f"dmrdash {latest} is available")
+    return {"ok": not error, "latest": latest, "error": error}
+
+
+def update_running():
+    """Under LOCK: the helper reports it is running, and could still be."""
+    st = UPDATE["status"] or {}
+    return st.get("state") == "running" and time.time() - float(st.get("ts") or 0) < UPDATE_RUN_MAX
+
+
+def read_update_status():
+    """update.py's last report, reread only when it changes. Under LOCK."""
+    try:
+        mtime = os.stat(UPDATE_STATUS).st_mtime
+    except OSError:
+        return
+    if mtime == UPDATE["status_mtime"]:
+        return
+    UPDATE["status_mtime"] = mtime
+    try:
+        with open(UPDATE_STATUS) as f:
+            st = json.load(f)
+        if not isinstance(st, dict):
+            raise ValueError
+    except (OSError, ValueError):
+        return
+    first = UPDATE["status"] is None
+    UPDATE["status"] = st
+    if st.get("state") == "running":
+        return
+    # a report this process hasn't seen: the one the update before this restart left, or a later one
+    recent = time.time() - float(st.get("ts") or 0) < 600
+    if first and not recent:
+        return
+    UPDATE["requested"] = None
+    if st.get("state") == "failed":
+        UPDATE["failed"] = str(st.get("error") or "see the helper")
+        add_event(time.time(), "E", f"The dmrdash update failed: {UPDATE['failed']}. Check it: journalctl -u dmrdash-update")
+    elif st.get("state") == "done" and st.get("new") != st.get("old"):
+        add_event(time.time(), "M", f"dmrdash updated from {st.get('old')} to {st.get('new')}")
+    elif st.get("state") == "done":
+        add_event(time.time(), "W", f"apt found nothing newer than dmrdash {st.get('old')}. Check it: journalctl -u dmrdash-update")
+
+
+def request_update():
+    if not packaged():
+        raise BMError("Updates need dmrdash installed as a package; rerun install.sh")
+    if not can_update():
+        raise BMError("Updates need the dmrdash-update helper; reinstall the package")
+    with LOCK:
+        if UPDATE["requested"] or update_running():
+            raise BMError("dmrdash is already updating")
+        if not update_available():
+            raise BMError(f"dmrdash {VERSION} is the newest version")
+        # the restart would lose a tuning run, or a change still waiting for DMRHost to confirm it
+        if restart_pending():
+            raise BMError(restart_pending())
+        try:
+            with open(UPDATE_PATH, "w") as f:
+                f.write("dmrdash\n")
+        except OSError as e:
+            raise BMError(f"Can't write the update request on the Pi: {e.strerror or e}")
+        UPDATE.update(requested=time.time(), failed=None)
+    return {"ok": True}
+
+
+def update_watch():
+    """Look for a new version every few hours, and follow an update once asked for."""
+    next_check = time.time() + 60  # not in the rush of a boot
+    while True:
+        time.sleep(2)
+        now = time.time()
+        if CONF["update_check"] and packaged() and now >= next_check:
+            next_check = now + UPDATE_EVERY
+            update_check()
+        with LOCK:
+            read_update_status()
+            started = update_running() and float(UPDATE["status"].get("ts") or 0) >= (UPDATE["requested"] or now) - 5
+            if UPDATE["requested"] and now - UPDATE["requested"] > UPDATE_WAIT and not started:
+                add_event(now, "E", "The update helper didn't start. Check it: systemctl status dmrdash-update.path")
+                UPDATE["requested"] = None
+
+
+def update_state():
+    """Under LOCK: what the page shows on the dmrdash row."""
+    return {"can": can_update(), "packaged": packaged(), "check": bool(CONF["update_check"]),
+            "latest": UPDATE["latest"], "available": update_available(), "checked": UPDATE["checked"],
+            "error": UPDATE["error"], "updating": bool(UPDATE["requested"]) or update_running(), "failed": UPDATE["failed"]}
+
+
 # --- console ----------------------------------------------------------------
 # The browser's terminal drives `ssh <ssh_user>@localhost` on a pty here. The Pi's own sshd asks for and
 # checks the password, so the dashboard gains no rights: it stays the sandboxed dmrdash user until sshd
@@ -1208,6 +1360,7 @@ def snapshot():
             "restart": RESTART["requested"],
             "master": {"can": can_master(), "current": current_master(), "target": MASTER["target"], "requested": MASTER["requested"]},
             "presets": [dict(p) for p in PRESETS],
+            "update": update_state(),
         }
 
 
@@ -1343,6 +1496,7 @@ def main():
     threading.Thread(target=tune_watch, daemon=True).start()
     threading.Thread(target=master_watch, daemon=True).start()
     threading.Thread(target=restart_watch, daemon=True).start()
+    threading.Thread(target=update_watch, daemon=True).start()
     srv = ThreadingHTTPServer((CONF["listen"], int(CONF["port"])), Handler)
     srv.daemon_threads = True
     srv.serve_forever()

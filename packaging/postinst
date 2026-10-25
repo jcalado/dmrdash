@@ -1,6 +1,8 @@
 #!/bin/sh
 set -e
 CONF=/etc/dmrdash.conf
+SOURCES=/etc/apt/sources.list.d/dmrdash.sources
+PATHS="dmrdash-rxoffset.path dmrdash-master.path dmrdash-power.path dmrdash-rflevel.path dmrdash-update.path"
 if [ "$1" = configure ]; then
   id dmrdash >/dev/null 2>&1 || useradd --system --no-create-home --shell /usr/sbin/nologin dmrdash
   if [ ! -f "$CONF" ]; then
@@ -13,6 +15,11 @@ if [ "$1" = configure ]; then
     echo "dmrdash: add your SelfCare API key (and optionally a PIN) to $CONF, then: sudo systemctl restart dmrdash"
   fi
   chown root:dmrdash "$CONF" && chmod 0640 "$CONF"
+  # the apt source for updates, rewritten each time so a new release can move it; "Enabled: no" is kept
+  OFF=$(grep -sx 'Enabled: no' "$SOURCES" || true)
+  { cat /usr/share/dmrdash/dmrdash.sources; [ -z "$OFF" ] || echo "$OFF"; } > "$SOURCES.new"
+  chmod 0644 "$SOURCES.new" && mv "$SOURCES.new" "$SOURCES"
+  rm -f /usr/local/bin/dmrdash-tui  # install.sh's link; the package's is in /usr/bin
   # a unit left by install.sh would shadow the packaged one
   if grep -q '^Description=DMRHost dashboard' /etc/systemd/system/dmrdash.service 2>/dev/null; then
     rm -f /etc/systemd/system/dmrdash.service
@@ -20,8 +27,13 @@ if [ "$1" = configure ]; then
   for u in dmrdash-rxoffset.path dmrdash-rxoffset.service dmrdash-master.path dmrdash-master.service dmrdash-power.path dmrdash-power.service dmrdash-rflevel.path dmrdash-rflevel.service; do
     grep -q 'DMRHost dashboard' "/etc/systemd/system/$u" 2>/dev/null && rm -f "/etc/systemd/system/$u"
   done
-  systemctl daemon-reload
-  systemctl enable dmrdash >/dev/null 2>&1
-  systemctl restart dmrdash
-  systemctl enable --now dmrdash-rxoffset.path dmrdash-master.path dmrdash-power.path dmrdash-rflevel.path >/dev/null 2>&1
+  # enabling works offline too (an image build, a container); starting needs a running systemd
+  # shellcheck disable=SC2086
+  systemctl enable dmrdash $PATHS >/dev/null 2>&1
+  if [ -d /run/systemd/system ]; then
+    systemctl daemon-reload
+    systemctl restart dmrdash
+    # shellcheck disable=SC2086
+    systemctl start $PATHS
+  fi
 fi

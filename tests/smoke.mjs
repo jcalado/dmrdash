@@ -14,7 +14,7 @@ const tmp = mkdtempSync(join(tmpdir(), "dmrdash-"));
 writeFileSync(join(tmp, "conf.json"), JSON.stringify({ device_id: 268000000, api_key: "", pin: "4321" }));
 const port = 18000 + Math.floor(Math.random() * 1000);
 const srv = spawn("python3", [join(here, "serve.py"), String(port)], {
-  env: { ...process.env, DMRDASH_CONF: join(tmp, "conf.json"), STATE_DIRECTORY: tmp }, stdio: "inherit" });
+  env: { ...process.env, DMRDASH_CONF: join(tmp, "conf.json"), STATE_DIRECTORY: tmp, DMRDASH_LATEST: "99.0.0" }, stdio: "inherit" });
 
 const fail = (msg) => { console.error("FAIL:", msg); process.exitCode = 1; };
 let browser;
@@ -52,6 +52,17 @@ try {
   if (kept !== "4321") fail("PIN not kept for the tab");
   const dash = await page.textContent("#stfoot");
   if (!/dmrdash \d+\.\d+\.\d+ · PIN on/.test(dash)) fail("station footer lacks the version: " + dash);
+
+  // a newer dmrdash in the repo: the Hotspot menu offers it, and asking for it shows the update under way
+  await page.click("#ibtn");
+  await page.click("#hbtn");
+  const row = await page.textContent("#hr4");
+  if (!row.includes("99.0.0 available")) fail("dmrdash row doesn't offer the update: " + row);
+  await page.click("#updgo");
+  await page.waitForSelector("#powdlg[open]");
+  if (!(await page.textContent("#powtitle")).includes("99.0.0")) fail("update confirmation lacks the version");
+  await page.click("#powok");
+  await page.waitForFunction(() => /Updating dmrdash to 99\.0\.0/.test(document.querySelector("#alarm").textContent));
   if (!process.exitCode) console.log("smoke ok");
 } catch (e) {
   fail(e.message);

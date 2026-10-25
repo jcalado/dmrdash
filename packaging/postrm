@@ -1,8 +1,12 @@
 #!/bin/sh
 set -e
+case "$1" in
+  # the keyring goes with the package, and a source without it would make every apt update fail
+  remove|purge) rm -f /etc/apt/sources.list.d/dmrdash.sources ;;
+esac
 if [ "$1" = purge ]; then
   rm -f /etc/dmrdash.conf
   rm -rf /var/lib/dmrdash
   userdel dmrdash >/dev/null 2>&1 || true
 fi
-systemctl daemon-reload >/dev/null 2>&1 || true
+[ -d /run/systemd/system ] && systemctl daemon-reload >/dev/null 2>&1 || true

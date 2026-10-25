@@ -407,6 +407,99 @@ class ServerTest(unittest.TestCase):
         with self.assertRaises(SystemExit):
             pw.read_request()
 
+    def test_update_check(self):
+        repo = os.path.join(TMP, "Packages")
+        with open(repo, "w") as f:
+            f.write("Package: dmrdash\nVersion: 1.10.0\n\nPackage: other\nVersion: 99.0\n\n"
+                    "Package: dmrdash\nVersion: 1.9.2\n")
+        dmrdash.PACKAGES_URL = "file://" + repo
+        self.assertEqual(dmrdash.update_check()["latest"], "1.10.0")  # by number, not as text
+        with dmrdash.LOCK:
+            self.assertTrue(dmrdash.update_available())
+        self.assertEqual(dmrdash.STATE["events"][0]["text"], "dmrdash 1.10.0 is available")
+        dmrdash.PACKAGES_URL = "file://" + os.path.join(TMP, "missing")
+        r = dmrdash.update_check()
+        self.assertFalse(r["ok"])
+        self.assertEqual(dmrdash.UPDATE["latest"], "1.10.0")  # a failed check forgets nothing
+        self.assertTrue(json.loads(self.req("GET", "/api/state")[1])["update"]["error"].startswith("Can't check"))
+        dmrdash.UPDATE.update(latest=None, error=None, checked=None)
+
+    def test_update_request(self):
+        pin = {"X-Dmrdash-Pin": "4321"}
+        dmrdash.DPKG_LIST = os.path.join(TMP, "missing.list")
+        dmrdash.UPDATE["latest"] = "99.0.0"
+        status, data = self.req("POST", "/api/bm", {"action": "update"}, pin)
+        self.assertEqual((status, json.loads(data)["error"]), (400, "Updates need dmrdash installed as a package; rerun install.sh"))
+        dmrdash.DPKG_LIST = os.path.join(TMP, "dmrdash.list")
+        open(dmrdash.DPKG_LIST, "w").close()
+        u = json.loads(self.req("GET", "/api/state")[1])["update"]
+        self.assertEqual((u["can"], u["available"], u["updating"]), (True, True, False))
+        dmrdash.UPDATE["latest"] = dmrdash.VERSION
+        self.assertEqual(self.req("POST", "/api/bm", {"action": "update"}, pin)[0], 400)  # nothing newer
+        self.assertFalse(os.path.exists(dmrdash.UPDATE_PATH))
+        dmrdash.UPDATE["latest"] = "99.0.0"
+        status, data = self.req("POST", "/api/bm", {"action": "update"}, pin)
+        self.assertEqual(status, 200, data)
+        with open(dmrdash.UPDATE_PATH) as f:
+            self.assertEqual(f.read(), "dmrdash\n")
+        self.assertTrue(json.loads(self.req("GET", "/api/state")[1])["update"]["updating"])
+        status, data = self.req("POST", "/api/bm", {"action": "update"}, pin)
+        self.assertEqual((status, json.loads(data)["error"]), (400, "dmrdash is already updating"))
+
+        # the helper's reports: running, then failed
+        def report(**st):
+            with open(dmrdash.UPDATE_STATUS, "w") as f:
+                json.dump(dict(st, ts=dmrdash.time.time()), f)
+            os.utime(dmrdash.UPDATE_STATUS, (st.get("n", 0) + 1e9, st.get("n", 0) + 1e9))  # a new mtime each time
+            with dmrdash.LOCK:
+                dmrdash.read_update_status()
+        report(state="running", old=dmrdash.VERSION, n=1)
+        self.assertTrue(json.loads(self.req("GET", "/api/state")[1])["update"]["updating"])
+        report(state="failed", old=dmrdash.VERSION, new=dmrdash.VERSION, error="E: Unable to locate package dmrdash", n=2)
+        u = json.loads(self.req("GET", "/api/state")[1])["update"]
+        self.assertEqual((u["updating"], u["failed"]), (False, "E: Unable to locate package dmrdash"))
+        self.assertTrue(dmrdash.STATE["events"][0]["text"].startswith("The dmrdash update failed: E: Unable"))
+        # asking again clears the failure; this time it lands
+        self.assertEqual(self.req("POST", "/api/bm", {"action": "update"}, pin)[0], 200)
+        self.assertIsNone(json.loads(self.req("GET", "/api/state")[1])["update"]["failed"])
+        report(state="done", old=dmrdash.VERSION, new="99.0.0", n=3)
+        self.assertEqual(dmrdash.STATE["events"][0]["text"], f"dmrdash updated from {dmrdash.VERSION} to 99.0.0")
+        self.assertFalse(json.loads(self.req("GET", "/api/state")[1])["update"]["updating"])
+        dmrdash.UPDATE.update(latest=None, requested=None, failed=None)
+
+    def test_update_report_from_before_a_restart(self):
+        # a new dashboard process mentions the update that restarted it, but not an old one
+        with open(dmrdash.UPDATE_STATUS + ".x", "w") as f:
+            json.dump({"state": "done", "old": "1.0.0", "new": "1.1.0", "ts": dmrdash.time.time() - 7200}, f)
+        os.replace(dmrdash.UPDATE_STATUS + ".x", dmrdash.UPDATE_STATUS)
+        dmrdash.UPDATE.update(status=None, status_mtime=None)
+        events = len(dmrdash.STATE["events"])
+        with dmrdash.LOCK:
+            dmrdash.read_update_status()
+        self.assertEqual(len(dmrdash.STATE["events"]), events)
+        dmrdash.UPDATE.update(status=None, status_mtime=None)
+
+    def test_update_helper_takes_only_dmrdash(self):
+        spec = importlib.util.spec_from_file_location("update", os.path.join(ROOT, "update.py"))
+        up = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(up)
+        up.REQUEST = os.path.join(TMP, "update.test")
+        for raw, ok in (("dmrdash\n", True), ("dmrhost", False), ("dmrdash; reboot", False), ("", False)):
+            with open(up.REQUEST, "w") as f:
+                f.write(raw)
+            if ok:
+                up.read_request()
+            else:
+                with self.assertRaises(SystemExit):
+                    up.read_request()
+        with open(up.REQUEST, "w") as f:
+            f.write("dmrdash")
+        os.utime(up.REQUEST, (1, 1))
+        with self.assertRaises(SystemExit):
+            up.read_request()  # stale
+        # refreshing only dmrdash's repo must not delete the other repos' lists
+        self.assertIn("APT::Get::List-Cleanup=0", up.APT_UPDATE)
+
 
 if __name__ == "__main__":
     unittest.main()

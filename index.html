@@ -581,6 +581,7 @@ dt { color: var(--legend-dim); } dd { margin: 0; overflow-wrap: anywhere; } dd.n
         <div class="hrow" id="hr1"><i class="lamp"></i><div class="hd"><span class="nm"></span><span class="st"></span></div><span class="dt"></span><div class="hctl rfpow" id="rfpow"></div></div>
         <div class="hrow" id="hr2"><i class="lamp"></i><div class="hd"><span class="nm"></span><span class="st"></span></div><span class="dt"></span><div class="hctl master" id="master"></div></div>
         <div class="hrow" id="hr3"><i class="lamp"></i><div class="hd"><span class="nm">Pi</span><span class="st"></span></div><div class="hctl inl" id="power"></div><span class="dt"></span><div class="hctl" id="pibox"></div></div>
+        <div class="hrow" id="hr4"><i class="lamp"></i><div class="hd"><span class="nm">dmrdash</span><span class="st"></span></div><div class="hctl inl" id="updrow"></div><span class="dt"></span></div>
       </div>
     </div>
     <div class="clock" id="clock"></div>
@@ -686,6 +687,7 @@ const ICONS = {
   power: '<path d="M8 2v6"/><path d="M4.6 4.3a5.2 5.2 0 1 0 6.8 0"/>',
   restart: '<path d="M13 8a5 5 0 1 1-1.5-3.6"/><path d="M13 2.5v3h-3"/>',
   term: '<rect x="1.5" y="2.5" width="13" height="11" rx="1.5"/><path d="M4.5 6.5l2 1.5-2 1.5M8 10h3.5"/>',
+  update: '<path d="M8 2v8M4.5 6.5L8 10l3.5-3.5"/><path d="M2.5 11.5v2h11v-2"/>',
   copy: '<rect x="5.5" y="5.5" width="8" height="8" rx="1.2"/><path d="M10.5 3.5V3a1 1 0 0 0-1-1H3a1 1 0 0 0-1 1v6.5a1 1 0 0 0 1 1h.5"/>',
 };
 function icon(name) {
@@ -751,6 +753,8 @@ function health() {
   if (S.master && S.master.target) alarm = ["Moving to master " + S.master.target, "DMRHost restarts and logs in again; the link is down for a few seconds."];
   if (S.rflevel && S.rflevel.target != null) alarm = ["Setting RF power to " + S.rflevel.target + "%", "DMRHost restarts with it; off the air for a few seconds."];
   if (S.restart) alarm = ["Restarting DMRHost", "Off the air for a few seconds while it starts and logs in again."];
+  if (S.update && S.update.updating) alarm = ["Updating dmrdash" + (S.update.latest ? " to " + S.update.latest : ""),
+    "The dashboard restarts with the new version and this page reloads by itself. The hotspot stays on the air."];
   if (ui.power) alarm = ui.power.what === "reboot"
     ? ["Restarting the hotspot", "Off the air for a minute or so. This page reconnects by itself."]
     : ["Shutting down the hotspot", "Once the Pi's green LED stops flashing it is safe to unplug. Plug it back in to start it again."];
@@ -1465,6 +1469,51 @@ async function powerAct(what) {
   ui.busy = null; render(true);
 }
 
+/* ---------------- updates ---------------- */
+// dmrdash's own row: the version running, a newer one in its apt repo, and the key that installs it
+function renderUpdate() {
+  const u = S.update || {}, row = $("hr4");
+  const c = u.updating ? "warn" : u.failed ? "fail" : "on";
+  row.className = "hrow " + c;
+  row.querySelector(".lamp").className = "lamp " + c;
+  row.querySelector(".st").textContent = u.updating ? "Updating…" : u.failed ? "Update failed"
+    : u.available ? u.latest + " available" : u.checked && !u.error ? "Up to date" : "";
+  row.querySelector(".dt").textContent = (S.version || "") + " · " + (
+    u.failed ? u.failed
+    : u.available && !u.packaged ? "installed with install.sh: rerun it to update"
+    : u.error ? u.error
+    : u.checked ? "checked " + ago(u.checked) + " ago"
+    : !u.packaged ? "updates need the dmrdash package" : !u.check ? "update check off" : "not checked yet");
+  const off = !!ui.busy || !!ui.power || u.updating;
+  fill($("updrow"), u.can && u.available
+    ? h("button", { class: "key sm act", id: "updgo", type: "button", disabled: off, onclick: updateAct }, icon("update"), u.updating ? "Updating…" : "Update")
+    : u.packaged ? h("button", { class: "key sm act", id: "updcheck", type: "button", disabled: off, onclick: updateCheck }, ui.busy === "updcheck" ? "Checking…" : "Check")
+    : null);
+}
+async function updateCheck() {
+  if (ui.busy) return;
+  ui.busy = "updcheck"; render(true);
+  try {
+    const { ok, status, j } = await post({ action: "updateCheck" });
+    if (!ok) say(0, j.error || "Failed (HTTP " + status + ")", true);
+  } catch (e) { say(0, "Can't reach the dashboard on the Pi", true); }
+  ui.busy = null; await poll();
+}
+async function updateAct() {
+  const u = S.update || {};
+  if (ui.busy || ui.power || u.updating) return;
+  ui.menu[5] = false; syncInfo();
+  if (!(await askConfirm("Update dmrdash to " + u.latest + "?",
+    "The dashboard restarts with the new version, which takes a few seconds, and this page reloads by itself. The hotspot stays on the air.",
+    "Update"))) { focusId("hbtn"); return; }
+  ui.busy = "update"; render(true);
+  try {
+    const { ok, status, j } = await post({ action: "update" });
+    if (!ok) say(0, j.error || "Failed (HTTP " + status + ")", true);
+  } catch (e) { say(0, "Can't reach the dashboard on the Pi", true); }
+  ui.busy = null; await poll();
+}
+
 /* ---------------- RF power ---------------- */
 const RF_LEVELS = [10, 25, 50, 100];
 function renderRfLevel() {
@@ -1689,7 +1738,7 @@ function render(force) {
   renderStrip();
   renderGlobal(force);
   for (const n of [1, 2]) renderVfo(n, force);
-  renderLog(); renderBer(force); renderStation(); renderEvents(); renderMaster(force); renderRfLevel(); renderPower();
+  renderLog(); renderBer(force); renderStation(); renderEvents(); renderMaster(force); renderRfLevel(); renderPower(); renderUpdate();
   if (focused && $(focused)) $(focused).focus();
 }
 
@@ -1697,6 +1746,8 @@ async function poll() {
   try {
     const r = await fetch("/api/state", { cache: "no-store" });
     if (r.ok) { S = await r.json(); skew = S.now - Date.now() / 1000; lastOk = now(); everOk = true; }
+    // a new dmrdash came up (an update, or one installed by hand): load its page
+    if (S && S.version) { if (ui.ver && S.version !== ui.ver) return location.reload(); ui.ver = S.version; }
     if (ui.power && !r.ok) ui.power.down = true;
     // back after going away: the restart finished (or a shut-down Pi was plugged in again)
     else if (ui.power && ui.power.down) { ui.power = null; say(0, "The hotspot is back"); }

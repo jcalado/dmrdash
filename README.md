@@ -36,6 +36,9 @@ talkgroups from your phone without logging in to SelfCare.
 - **Master switching:** pick another BrandMeister master under BM in the Hotspot menu, or type the ID of one BrandMeister's
   list leaves out. DMRHost restarts and logs in to it, and the dashboard confirms once it has.
 - **Live log:** an MMDVM-style tail of the hotspot log, kept in RAM.
+- **Updates:** the dmrdash row of the Hotspot menu says when a new version is out, and Update installs it.
+  The dashboard restarts with it and the page reloads; the hotspot stays on the air. This needs the Debian
+  package, which the installer sets up.
 - **SSH and a console:** the SSH key on the Hotspot menu's Pi row shows the `ssh` command with Copy, and opens your
   phone's SSH app. With `"shell": true`, it also opens a console in the browser: you sign in with the Pi
   account's password, as over SSH.
@@ -45,7 +48,7 @@ talkgroups from your phone without logging in to SelfCare.
   Each browser remembers its own layout.
 - **Light on the Pi:**
   - Python standard library only, about 26 MB of memory, and no build step.
-  - Nothing is written to the SD card in normal use. Only saving a preset, changing the RX offset or RF power, or switching master writes a small file.
+  - Nothing is written to the SD card in normal use. Only saving a preset, changing the RX offset or RF power, switching master, or updating writes to it.
 
 <br clear="right">
 
@@ -68,7 +71,10 @@ The installer:
 - downloads the latest release;
 - takes your device ID from `/etc/MMDVM.ini`;
 - asks for your SelfCare API key and an optional PIN;
-- starts the `dmrdash` service.
+- installs the `dmrdash` package from dmrdash's apt repo, which starts the service.
+
+The package adds that repo to apt (`/etc/apt/sources.list.d/dmrdash.sources`, signed with the key in
+`/usr/share/keyrings/dmrdash-archive-keyring.gpg`). That is how the dashboard, and `apt upgrade`, get new versions.
 
 Then open `http://<your-pi>.local:8080/`.
 
@@ -79,14 +85,17 @@ Alternatives:
   sudo apt install ./dmrdash_<version>_all.deb
   ```
   Download the `.deb` from [Releases](https://github.com/jcalado/dmrdash/releases), then edit `/etc/dmrdash.conf` as below.
+  It adds the apt repo too, so later versions come as updates.
 - **From a checkout:**
   ```sh
   git clone https://github.com/jcalado/dmrdash && cd dmrdash && sudo ./install.sh
   ```
+  This copies the checkout's files instead of installing the package, so the dashboard can't update itself.
 - **A specific version:**
   ```sh
   curl -fsSL …/install.sh | sudo DMRDASH_VERSION=v1.0.0 sh
   ```
+  Also copies the files. `--files` does the same for the latest release, e.g. on a system without apt.
 
 ### Getting a SelfCare API key
 
@@ -129,6 +138,7 @@ q quits. `--ascii` draws without box characters.
 | `allowed_hosts` | `[]` | Extra host names the dashboard answers to, e.g. a reverse-proxy name. |
 | `ssh_user` | `""` | The Pi account the SSH command, the SSH app link and the console use. Empty leaves it out, and your SSH app asks. |
 | `shell` | `false` | `true` turns on the console in the browser. It also needs `ssh_user`. |
+| `update_check` | `true` | Look for a new dmrdash in its apt repo every 6 hours. Check in the Hotspot menu works either way. |
 
 ## Security
 
@@ -164,6 +174,13 @@ dmrdash is meant for your **home LAN**. It has no user accounts.
   three words, ignores a request older than a minute, and runs `systemctl reboot`, `systemctl poweroff`,
   or restarts the hotspot service named by `"unit"`.
   These need the PIN when one is set. To turn them off, run `sudo systemctl disable --now dmrdash-power.path`.
+- **Updates:** the same split. The dashboard only reads the newest version from the repo's package list
+  (`https://jcalado.github.io/dmrdash`). Update writes `dmrdash` to `/var/lib/dmrdash/update.request`, and the
+  root-run `dmrdash-update.path` and `.service` units pass it to `update.py`. That script accepts only that word,
+  ignores a request older than a minute, and runs `apt-get install --only-upgrade dmrdash`. apt checks the
+  repo's signature, so the dashboard can't make it install anything else. It needs the PIN when one is set. To turn
+  updates off, run `sudo systemctl disable --now dmrdash-update.path`, set `"update_check": false`, and add
+  `Enabled: no` to `/etc/apt/sources.list.d/dmrdash.sources` (the package keeps that line).
 
 - **Console:** off unless `"shell": true`. It runs `ssh <ssh_user>@localhost` on the Pi and shows it in the
   browser. The Pi's own SSH server asks for the account's password and checks it, so the dashboard gains no
@@ -175,13 +192,12 @@ dmrdash is meant for your **home LAN**. It has no user accounts.
 
 ## Update and uninstall
 
-- **Update:** run the same install command again. Your settings and presets are kept.
-- **Uninstall:**
-  ```sh
-  curl -fsSL https://github.com/jcalado/dmrdash/releases/latest/download/install.sh | sudo sh -s -- --uninstall
-  ```
-  Add `--purge` to also remove `/etc/dmrdash.conf` and presets. With the Debian package, use
-  `sudo apt remove dmrdash` (or `purge`).
+- **Update:** Update in the Hotspot menu, or `sudo apt update && sudo apt upgrade` like any other package.
+  Your settings and presets are kept.
+- **From version 1.5.1 or older, or an install.sh install:** run the install command once more. It moves you to the
+  package, and from then on updates come from the dashboard.
+- **Uninstall:** `sudo apt remove dmrdash`, or `sudo apt purge dmrdash` to also remove `/etc/dmrdash.conf` and
+  presets. A copied-files install: the install command with `-s -- --uninstall` (or `--purge`) after `sh`.
 
 ## Troubleshooting
 
@@ -201,6 +217,8 @@ dmrdash is meant for your **home LAN**. It has no user accounts.
   running and allows password logins (`PasswordAuthentication`), and `journalctl -u ssh -n 20`.
 - **Restart or Shut down does nothing:** check `systemctl status dmrdash-power.path` and
   `journalctl -u dmrdash-power -n 20`.
+- **"The dmrdash update failed":** `journalctl -u dmrdash-update -n 40` shows apt's output. A common cause is an
+  interrupted earlier upgrade: run `sudo dpkg --configure -a`, then try again.
 
 ## Development
 
@@ -212,13 +230,17 @@ python3 -m unittest discover -s tests          # server tests, no network needed
 npm install --no-save playwright && npx playwright install chromium
 node tests/smoke.mjs                           # page renders, PIN dialog works
 packaging/build-deb.sh                         # dist/dmrdash_<version>_all.deb (needs dpkg-deb)
+docker run --rm -v "$PWD":/src:ro debian:trixie sh /src/tests/apt-e2e.sh   # install, update, remove via apt
 ```
 
 To release:
 1. Bump `VERSION` in `dmrdash.py`.
 2. Tag `vX.Y.Z` and push the tag.
 
-CI then builds the tarball, `install.sh` and the `.deb`, and attaches them to a GitHub release.
+CI then builds the tarball, `install.sh` and the `.deb`, and attaches them to a GitHub release. It then adds the
+`.deb` to the apt repo on the `gh-pages` branch, signed with the `APT_SIGNING_KEY` secret, and GitHub Pages
+serves it. The key's public half is `packaging/dmrdash-archive-keyring.gpg`, which every package ships;
+`packaging/apt-repo.sh` says how the key was made.
 
 ## Licence
 

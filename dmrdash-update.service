@@ -1,0 +1,12 @@
+[Unit]
+Description=Update dmrdash from its apt repo, as requested by the DMRHost dashboard
+# update.py takes only the word "dmrdash" from the request and runs apt, which checks the repo's signature.
+# apt writes across the system, so there's no ProtectSystem here, and it needs the network.
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 -I /opt/dmrdash/update.py
+TimeoutStartSec=15min
+NoNewPrivileges=yes
+ProtectHome=yes
+PrivateTmp=yes
