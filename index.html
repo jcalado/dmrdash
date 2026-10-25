@@ -563,8 +563,9 @@ dt { color: var(--legend-dim); } dd { margin: 0; overflow-wrap: anywhere; } dd.n
   .lcd { min-height: 150px; }
   .station { margin-right: 0; width: 100%; }
   .clock { margin-left: auto; }
+  .clock.one { grid-auto-flow: row; gap: 4px; }  /* "UTC" under the time: one line is too wide to keep the strip's keys on one row */
   .health { margin-left: -10px; }  /* the lamp lines up under the callsign */
-  .strip { padding: 14px 16px; }
+  .strip { padding: 14px 16px; column-gap: 14px; }  /* the lamp, clock, Presets and (i) share one row on a 390px phone */
   .hide-s, td .nm { display: none; }
   th, td, th button { padding: 6px 5px; } th button { gap: 2px; } table { font-size: 12px; } .src { margin-right: 4px; }
 }
