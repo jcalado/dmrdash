@@ -39,6 +39,11 @@ talkgroups from your phone without logging in to SelfCare.
   key with checks for the keys it knows, or as text with line marks for edits and problems. Review shows the
   changes by key or as a line diff, and writing restarts DMRHost. The old file is kept, Undo puts it back, and it
   goes back by itself if DMRHost doesn't come up with the new one. Passwords never reach the page.
+- **Pi health:** the Pi row of the Hotspot menu shows CPU temperature, the firmware's under-voltage and throttling
+  flags, Wi-Fi signal, memory, SD card space and load. A reading out of range turns the status lamp amber or red and
+  leaves an event; under-voltage, overheating, a full card or a very weak signal also raise the alarm banner.
+- **Backup and restore:** Backup on the dmrdash row of the Hotspot menu downloads one file with your presets, MMDVM.ini
+  and the dashboard's settings, and restores the presets and MMDVM.ini from one. No password, API key or PIN is in it.
 - **Live log:** an MMDVM-style tail of the hotspot log, kept in RAM.
 - **Updates:** the dmrdash row of the Hotspot menu says when a new version is out, and Update installs it.
   The dashboard restarts with it and the page reloads; the hotspot stays on the air. This needs the Debian
@@ -47,12 +52,13 @@ talkgroups from your phone without logging in to SelfCare.
   phone's SSH app. With `"shell": true`, it also opens a console in the browser: you sign in with the Pi
   account's password, as over SSH.
 - **Terminal view:** `dmrdash-tui` shows both timeslots, talkgroups, last heard and the live log in a terminal,
-  for when you're on the Pi over SSH. It is read-only.
+  for when you're on the Pi over SSH. Its actions menu stops a call, applies a preset, adds or removes a static
+  talkgroup, drops dynamics and restarts DMRHost.
 - **Your layout:** drag Last heard, RF BER and Live log into the order you like, and hide any of them from the (i) menu.
   Each browser remembers its own layout.
 - **Light on the Pi:**
   - Python standard library only, about 26 MB of memory, and no build step.
-  - Nothing is written to the SD card in normal use. Only saving a preset, changing the RX offset or RF power, switching master, or updating writes to it.
+  - Nothing is written to the SD card in normal use. Only saving a preset, changing the RX offset or RF power, switching master, editing or restoring MMDVM.ini, restoring presets, or updating writes to it.
 
 <br clear="right">
 
@@ -123,6 +129,11 @@ It needs a terminal of at least 60×16 and redraws as you resize. Keys: ↑/↓ 
 f shows only that callsign, g only that talkgroup, x or Esc clears the filter, l switches to the live log,
 q quits. `--ascii` draws without box characters.
 
+`a` opens the actions menu: stop a network call, apply a preset, add or remove a static talkgroup, drop a slot's
+dynamic talkgroups, or restart DMRHost. It lists only what the server allows (talkgroup changes need the API key,
+the restart needs the power helper). Anything that cuts a call asks y/n first, and the PIN, when one is set, is
+asked once per run. A problem with the Pi itself (heat, power, Wi-Fi, a full card) shows beside the status lights.
+
 ## Configuration
 
 `/etc/dmrdash.conf` is JSON. After editing it, run `sudo systemctl restart dmrdash`.
@@ -131,7 +142,7 @@ q quits. `--ascii` draws without box characters.
 |---|---|---|
 | `device_id` | `0` | Your BrandMeister hotspot ID: DMR ID plus SSID, as in `[General] Id=` of `/etc/MMDVM.ini`. |
 | `api_key` | `""` | SelfCare API key. Empty means read-only. |
-| `pin` | `""` | When set, every change (talkgroups, presets, Stop call, RX offset, RF power, restarts, clearing events) asks for this PIN once per browser tab. |
+| `pin` | `""` | When set, every change (talkgroups, presets, Stop call, RX offset, RF power, restarts, clearing events), and downloading or restoring a backup, asks for this PIN once per browser tab. |
 | `port` | `8080` | HTTP port. |
 | `listen` | `"0.0.0.0"` | Address to listen on. Use `"127.0.0.1"` behind a reverse proxy. |
 | `unit` | `"dmrhost"` | systemd unit whose journal is followed, and which an RX offset, RF power or master change, or Restart DMRHost, restarts. |
@@ -181,6 +192,16 @@ dmrdash is meant for your **home LAN**. It has no user accounts.
   `MMDVM.ini.dmrdash-prev` and restarts the hotspot service. Unlike the helpers above, this one lets the page set
   **any** key, including `[DMR Network] Address=` and log paths, so set a PIN if anyone else is on your network.
   To turn the feature off, run `sudo systemctl disable --now dmrdash-config.path`.
+- **Pi health:** read-only. The dashboard reads the temperature, the firmware's throttle flags, memory and Wi-Fi
+  signal from `/proc` and `/sys` every 10 seconds, and asks the kernel how full the root filesystem is. No helper
+  runs and nothing is written.
+- **Backups:** a backup is made of what the page may already see. MMDVM.ini comes from the same helper as the
+  editor, with every password masked, and the dashboard's settings leave out `api_key` and `pin`. Restoring sends
+  MMDVM.ini through the editor's path, with all its checks: each mask takes the password the file has now, the old
+  file is kept for Undo, and it goes back by itself if DMRHost doesn't come up. On a new SD card that means setting
+  the hotspot password and API key once by hand (the installer asks for the key). Restore never writes
+  `/etc/dmrdash.conf`: a page that could set `"mmdvm_ini"` could point the root-run helper at any file. The settings
+  are in the backup for you to copy back.
 - **Restarts and shut down:** the same split. The Hotspot menu's Restart and Shut down keys ask for
   confirmation, then the dashboard writes `reboot`, `poweroff` or `dmrhost` to `/var/lib/dmrdash/power.request`.
   The root-run `dmrdash-power.path` and `.service` units pass it to `power.py`, which accepts only those
@@ -231,6 +252,14 @@ dmrdash is meant for your **home LAN**. It has no user accounts.
   path unit isn't running. `"mmdvm_ini"` in `/etc/dmrdash.conf` sets another path for the file.
 - **The console says "session ended" right away:** check that `ssh_user` is a real account, that sshd is
   running and allows password logins (`PasswordAuthentication`), and `journalctl -u ssh -n 20`.
+- **The Pi row shows no Power or CPU reading:** the board doesn't report it. Power comes from the Raspberry Pi
+  firmware (`/sys/devices/platform/soc/soc:firmware/get_throttled`) and the temperature from
+  `/sys/class/thermal/thermal_zone0/temp`; other boards may have neither. Wi-Fi shows only when the Pi's default
+  route goes over it.
+- **"MMDVM.ini isn't in it" after a backup:** the config helper didn't answer, so the file has only the presets and
+  settings. Check `systemctl status dmrdash-config.path`, then download again.
+- **Restore refuses with "Type … in full":** the backup has a masked password for a key this Pi's MMDVM.ini doesn't
+  have yet. Add the key with its password in the editor (Config on the DMRHost row), then restore again.
 - **Restart or Shut down does nothing:** check `systemctl status dmrdash-power.path` and
   `journalctl -u dmrdash-power -n 20`.
 - **"The dmrdash update failed":** `journalctl -u dmrdash-update -n 40` shows apt's output. A common cause is an

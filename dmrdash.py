@@ -6,7 +6,7 @@ API for device status and talkgroup subscriptions. Static talkgroups can be
 managed with a SelfCare API key, which never leaves this process.
 
 Standard library only; all state is kept in memory. The one exception is talkgroup
-presets, a small JSON file written only when a preset is saved or deleted.
+presets, a small JSON file written only when a preset is saved or deleted, or restored from a backup.
 
 https://github.com/jcalado/dmrdash - MIT licence
 """
@@ -567,6 +567,10 @@ def bm_action(body):
         return config_write(body)
     elif action == "configUndo":
         return config_undo(body)
+    elif action == "backup":
+        return backup_make()
+    elif action == "restore":
+        return backup_restore(body)
     else:
         raise BMError("unknown action")
     bm_refresh()
@@ -1711,6 +1715,269 @@ def shell_session(rfile, sock, cols, rows):
         os.close(master)
 
 
+# --- Pi health --------------------------------------------------------------
+# Read from /proc and /sys every few seconds: no helper, and nothing written. A reading the board doesn't
+# give (no firmware throttle flags off a Pi, no Wi-Fi on a wired one) is None and never counts as a problem.
+# The words for each problem are made here, so the page, the terminal view and the events all say the same.
+
+PI_EVERY = 10
+PI_PATHS = {
+    "temp": "/sys/class/thermal/thermal_zone0/temp",                    # millidegrees C
+    "throttled": "/sys/devices/platform/soc/soc:firmware/get_throttled",  # the Pi firmware's flags, in hex
+    "meminfo": "/proc/meminfo",
+    "wireless": "/proc/net/wireless",
+    "route": "/proc/net/route",
+    "disk": "/",
+}
+# warn at, bad at, and how far back a reading must come before its level drops again (so one that sits on a
+# threshold doesn't fill the events). Wi-Fi is judged on -dBm, so that higher is worse for every rule.
+PI_RULES = {"temp": (70, 80, 3), "mem": (90, 96, 2), "disk": (90, 97, 1), "wifi": (75, 82, 3)}
+PI_POWER_HOLD = 6  # clean samples before a power problem counts as over: under-voltage flickers
+PI_ORDER = ("power", "temp", "wifi", "disk", "mem")
+PI_WORDS = ("ok", "warn", "bad")
+
+PI = {"sample": None, "level": {}, "clean": 0, "dipped": False}
+
+
+def read_text(path):
+    try:
+        with open(path) as f:
+            return f.read()
+    except OSError:
+        return None
+
+
+def pi_wifi():
+    """{"iface", "dbm"} for the Wi-Fi link the Pi reaches the network over, or None (wired, or none up)."""
+    links = {}
+    for line in (read_text(PI_PATHS["wireless"]) or "").splitlines()[2:]:
+        parts = line.replace(":", " ").split()
+        try:
+            if float(parts[2].rstrip(".")) > 0:  # link quality 0: not associated
+                links[parts[0]] = int(float(parts[3].rstrip(".")))
+        except (IndexError, ValueError):
+            pass
+    routes = []
+    for line in (read_text(PI_PATHS["route"]) or "").splitlines()[1:]:
+        parts = line.split()
+        if len(parts) > 6 and parts[1] == "00000000" and parts[6].isdigit():
+            routes.append((int(parts[6]), parts[0]))
+    iface = min(routes)[1] if routes else next(iter(links), None)
+    return {"iface": iface, "dbm": links[iface]} if iface in links else None
+
+
+def pi_read():
+    """One sample of the Pi's own health."""
+    s = {"temp": None, "power": None, "mem": None, "disk": None, "wifi": pi_wifi(), "load": None, "cores": os.cpu_count() or 1}
+    try:
+        s["temp"] = round(int(read_text(PI_PATHS["temp"])) / 1000, 1)
+    except (TypeError, ValueError):
+        pass
+    try:
+        bits = int(read_text(PI_PATHS["throttled"]).strip(), 16)
+        # bit 0 under-voltage, 1 frequency capped, 2 throttled, right now; 16 to 18 the same at any time since boot
+        s["power"] = {"under": bool(bits & 1), "capped": bool(bits & 6), "dipped": bool(bits & 1 << 16)}
+    except (AttributeError, ValueError):
+        pass
+    mem = dict(re.findall(r"(?m)^(MemTotal|MemAvailable):\s+(\d+) kB", read_text(PI_PATHS["meminfo"]) or ""))
+    if len(mem) == 2 and int(mem["MemTotal"]):
+        s["mem"] = {"total": int(mem["MemTotal"]) * 1024, "avail": int(mem["MemAvailable"]) * 1024}
+    try:
+        st = os.statvfs(PI_PATHS["disk"])
+        if st.f_blocks:
+            s["disk"] = {"total": st.f_blocks * st.f_frsize, "free": st.f_bavail * st.f_frsize}
+        s["load"] = [round(x, 2) for x in os.getloadavg()]
+    except OSError:
+        pass
+    return s
+
+
+def pi_size(n):
+    return f"{n / 2 ** 30:.1f} GB" if n >= 2 ** 30 else f"{n // 2 ** 20} MB"
+
+
+def pi_used(part):
+    return 100 * (1 - part.get("avail", part.get("free", 0)) / part["total"])
+
+
+def pi_step(value, warn, bad, margin, prev):
+    """0 ok, 1 warn or 2 bad for a reading, given the level it had: it only drops once clear of the threshold."""
+    lvl = 2 if value >= bad else 1 if value >= warn else 0
+    if prev == 2 and lvl < 2 and value > bad - margin:
+        return 2
+    if prev and lvl == 0 and value > warn - margin:
+        return 1
+    return lvl
+
+
+def pi_problem(key, lvl, s):
+    """(headline, what it means) for a reading at warn or bad."""
+    if key == "power":
+        if lvl == 2:
+            return ("Pi power is sagging", "Under-voltage right now. The Pi can reset or damage its SD card: "
+                    "use a 5 V 2.5 A supply and a short, thick cable.")
+        return "Pi is being slowed down", "The firmware is holding the CPU back, for low voltage or heat."
+    if key == "temp":
+        return (("Pi is overheating", f"{s['temp']:.0f} °C. The CPU slows itself down to cool: give it air or a heatsink.") if lvl == 2
+                else ("Pi is running hot", f"{s['temp']:.0f} °C. It slows itself down at 80 °C: give it some air."))
+    if key == "wifi":
+        return ("Very weak Wi-Fi" if lvl == 2 else "Weak Wi-Fi",
+                f"{s['wifi']['dbm']} dBm on {s['wifi']['iface']}. Calls can break up: move the hotspot nearer the router.")
+    if key == "disk":
+        return ("SD card is full" if lvl == 2 else "SD card is nearly full",
+                f"{pi_used(s['disk']):.0f}% used, {pi_size(s['disk']['free'])} left.")
+    return ("Pi is out of memory" if lvl == 2 else "Pi is low on memory",
+            f"{pi_used(s['mem']):.0f}% in use, {pi_size(s['mem']['avail'])} free.")
+
+
+def pi_recovered(key, s):
+    if key == "temp" and s["temp"] is not None:
+        return f"Pi temperature back to {s['temp']:.0f} °C"
+    if key == "wifi" and s["wifi"]:
+        return f"Wi-Fi back to {s['wifi']['dbm']} dBm"
+    if key == "disk" and s["disk"]:
+        return f"SD card back to {pi_used(s['disk']):.0f}% used"
+    if key == "mem" and s["mem"]:
+        return f"Pi memory back to {pi_used(s['mem']):.0f}% in use"
+    return {"power": "Pi power is steady again", "temp": "Pi temperature is no longer reported",
+            "wifi": "The Pi is no longer on Wi-Fi"}.get(key, "Pi " + key + " is no longer reported")
+
+
+def pi_tick(s, now):
+    """Under LOCK: take a sample, and report each reading whose level changed."""
+    old, new = PI["level"], {}
+    values = {"temp": s["temp"], "mem": s["mem"] and pi_used(s["mem"]), "disk": s["disk"] and pi_used(s["disk"]),
+              "wifi": s["wifi"] and -s["wifi"]["dbm"]}
+    for key, value in values.items():
+        new[key] = 0 if value is None else pi_step(value, *PI_RULES[key], old.get(key, 0))
+    power = s["power"] or {}
+    raw = 2 if power.get("under") else 1 if power.get("capped") else 0
+    PI["clean"] = 0 if raw else PI["clean"] + 1
+    new["power"] = raw if raw >= old.get("power", 0) or PI["clean"] >= PI_POWER_HOLD else old["power"]
+    for key in PI_ORDER:
+        if new[key] > old.get(key, 0):
+            add_event(now, "E" if new[key] == 2 else "W", ". ".join(pi_problem(key, new[key], s)))
+        elif old.get(key, 0) and not new[key]:
+            add_event(now, "M", pi_recovered(key, s))
+    # a dip too short for a sample to catch still sets the firmware's since-boot flag
+    if power.get("dipped") and not PI["dipped"] and not new["power"]:
+        add_event(now, "W", "The Pi has had under-voltage since it booted. Check its power supply and cable.")
+    PI.update(sample=s, level=new, dipped=bool(power.get("dipped")))
+
+
+def pi_state():
+    """Under LOCK: the last sample, each reading's level in words, and the problems, worst first."""
+    s, level = PI["sample"], PI["level"]
+    if s is None:
+        return {"level": {}, "problems": [], "worst": "ok"}
+    problems = [dict(zip(("title", "text"), pi_problem(k, level[k], s)), key=k, level=PI_WORDS[level[k]])
+                for k in sorted(PI_ORDER, key=lambda k: -level[k]) if level[k]]
+    return dict(s, level={k: PI_WORDS[v] for k, v in level.items()}, problems=problems,
+                worst=PI_WORDS[max(level.values(), default=0)])
+
+
+def pi_watch():
+    while True:
+        try:
+            s = pi_read()
+            with LOCK:
+                pi_tick(s, time.time())
+        except Exception as e:  # a reading in a shape this didn't expect must not end the watch
+            with LOCK:
+                add_event(time.time(), "E", f"dashboard: Pi health reader failed: {e}")
+        time.sleep(PI_EVERY)
+
+
+# --- backup and restore -----------------------------------------------------
+# A backup is one JSON file the page downloads: the presets, MMDVM.ini as config.py shows it (passwords
+# masked), and this dashboard's settings without the API key and the PIN. No secret is in it, as none ever
+# reaches the page. Restoring puts back the presets, which the dashboard owns, and MMDVM.ini through the
+# editor's own path, so config.py checks it, each mask takes the password the file has now, the old file is
+# kept, and it goes back by itself if DMRHost stays down. The settings are there to read: a page that could
+# write /etc/dmrdash.conf could point "mmdvm_ini" at any file, for config.py to rewrite as root.
+
+BACKUP_FORMAT = 1
+
+
+def backup_make():
+    ini = note = None
+    if can_config():
+        try:
+            view = config_view()
+            ini = {"path": view["path"], "text": view["text"]}
+        except BMError as e:
+            note = f"MMDVM.ini isn't in it: {e}"
+    else:
+        note = "MMDVM.ini isn't in it: that needs the dmrdash-config helper"
+    host = os.uname().nodename
+    with LOCK:
+        presets = [dict(p) for p in PRESETS]
+    backup = {"dmrdash_backup": BACKUP_FORMAT, "created": time.time(), "version": VERSION, "hostname": host,
+              "presets": presets, "mmdvm_ini": ini,
+              "conf": {k: CONF[k] for k in DEFAULTS if k not in ("api_key", "pin")}}
+    name = "dmrdash-%s-%s.json" % (re.sub(r"[^\w.-]", "_", host) or "hotspot", time.strftime("%Y%m%d-%H%M"))
+    return {"ok": True, "backup": backup, "name": name, "note": note}
+
+
+def backup_parts(backup):
+    """An uploaded backup's presets and MMDVM.ini text, checked; None for a part it doesn't have."""
+    if not isinstance(backup, dict) or backup.get("dmrdash_backup") != BACKUP_FORMAT:
+        raise BMError("That file isn't a dmrdash backup")
+    presets, raw = None, backup.get("presets")
+    if raw is not None:
+        if not isinstance(raw, list) or len(raw) > MAX_PRESETS:
+            raise BMError(f"The backup's presets aren't a list of up to {MAX_PRESETS}")
+        presets = []
+        for p in raw:
+            if not isinstance(p, dict) or not isinstance(p.get("slots"), dict):
+                raise BMError("A preset in the backup has no name or talkgroups")
+            name, slots = preset_name(p), {}
+            for s in ("1", "2"):
+                tgs = p["slots"].get(s, [])
+                if not isinstance(tgs, list) or len(tgs) > 30 \
+                        or any(not isinstance(t, int) or isinstance(t, bool) or not 1 <= t <= 16777215 for t in tgs):
+                    raise BMError(f"The preset {name} in the backup has a talkgroup out of range")
+                slots[s] = sorted(set(tgs))
+            if name.lower() in (q["name"].lower() for q in presets):
+                raise BMError(f"The backup has two presets called {name}")
+            presets.append({"name": name, "slots": slots, "drop_dynamic": p.get("drop_dynamic") is True})
+    ini = backup.get("mmdvm_ini")
+    if ini is not None and (not isinstance(ini, dict) or not isinstance(ini.get("text"), str)):
+        raise BMError("The backup's MMDVM.ini isn't text")
+    return presets, ini and ini["text"].replace("\r\n", "\n")
+
+
+def backup_restore(body):
+    presets, ini = backup_parts(body.get("backup"))
+    if body.get("presets") is not True:
+        presets = None
+    if body.get("ini") is not True:
+        ini = None
+    if presets is None and ini is None:
+        raise BMError("Nothing in that backup was picked to restore")
+    out = {"ok": True, "presets": None, "ini": None, "previous": None}
+    if ini is not None:
+        # first, as it is the part that can be refused; then nothing has changed yet
+        view = config_read()
+        if view["text"] == ini:
+            out["ini"] = "same"
+        else:
+            config_write({"text": ini, "base": view["base"]})
+            out["ini"] = "sent"
+    if presets is not None:
+        with LOCK:
+            old = [dict(p) for p in PRESETS]
+            PRESETS[:] = presets
+            try:
+                save_presets()
+            except BMError:
+                PRESETS[:] = old
+                raise
+            add_event(time.time(), "M", f"Restored {len(presets)} talkgroup preset{'' if len(presets) == 1 else 's'} from a backup")
+        out.update(presets=len(presets), previous=old)
+    return out
+
+
 # --- HTTP -------------------------------------------------------------------
 
 def local_ip():
@@ -1773,6 +2040,7 @@ def snapshot():
             "master": {"can": can_master(), "current": current_master(), "target": MASTER["target"], "requested": MASTER["requested"]},
             "presets": [dict(p) for p in PRESETS],
             "update": update_state(),
+            "pi": pi_state(),
             "config": {"can": can_config(), "op": CONFIG["op"], "auto": CONFIG["auto"], "last": {k: v for k, v in CONFIG_LAST.items() if k != "hash"} or None},
         }
 
@@ -1919,6 +2187,7 @@ def main():
     threading.Thread(target=restart_watch, daemon=True).start()
     threading.Thread(target=update_watch, daemon=True).start()
     threading.Thread(target=config_watch, daemon=True).start()
+    threading.Thread(target=pi_watch, daemon=True).start()
     srv = ThreadingHTTPServer((CONF["listen"], int(CONF["port"])), Handler)
     srv.daemon_threads = True
     srv.serve_forever()

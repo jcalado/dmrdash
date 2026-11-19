@@ -467,8 +467,13 @@ svg.ic { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-wid
 /* SSH on the Pi row: the command with Copy, then Open in SSH app and Console */
 #pibox > * { flex-basis: 100%; }
 #hr3 #pibox { grid-row: 4; }
+/* the Pi's own readings under its address: dim labels, values in white, amber or fail text when out of range */
+.hrow .pim { gap: 3px 14px; margin-top: 5px; font: 12px/1.35 var(--mono); color: var(--legend-dim); }
+.pim span { white-space: nowrap; }
+.pim b { font-weight: inherit; color: var(--white); margin-left: 6px; }
+.pim .warn b { color: var(--busy); } .pim .bad b { color: var(--fail-text); }
 /* on a phone three keys leave the Pi's address no room: they take a line of their own under it */
-@media (max-width: 480px) { #hr3 .hctl.inl { grid-column: 2 / -1; grid-row: 3; margin-top: 9px; } }
+@media (max-width: 480px) { #hr3 .hctl.inl { grid-column: 2 / -1; grid-row: 4; margin-top: 9px; } #hr3 #pibox { grid-row: 5; } }
 .cmd { display: flex; align-items: center; gap: 8px; min-width: 0; height: 30px; padding: 0 3px 0 10px; border: 1px solid var(--rule-2); border-radius: 6px; background: var(--panel-2); }
 .cmd input { flex: 1; min-width: 0; border: 0; background: none; color: var(--white); font: 12.5px/1 var(--mono); padding: 0; }
 .cmd input:focus { outline: none; }
@@ -499,7 +504,17 @@ a.key { text-decoration: none; }
 .pindlg::backdrop, .cfmdlg::backdrop { background: rgb(0 0 0 / .55); }
 .pindlg h3, .cfmdlg h3 { margin: 0 0 8px; }
 .pindlg p, .cfmdlg p { margin: 0 0 12px; font-size: 13.5px; color: var(--legend); }
-.pindlg p.bad { color: var(--fail-text); }
+.pindlg p.bad, .cfmdlg p.bad { color: var(--fail-text); }
+/* backup: the confirmation shell, a little wider; each part of a backup is a ticked line with what restoring it does */
+.bakdlg { width: min(380px, calc(100vw - 32px)); }
+.bakdlg .row { flex-wrap: wrap; }
+.bakdlg .from { font: 12px/1.35 var(--mono); color: var(--legend-dim); }
+.bakopt { display: flex; gap: 10px; align-items: flex-start; padding: 9px 0; border-top: 1px solid var(--row); cursor: pointer; }
+.bakopt.off { opacity: .55; cursor: default; }
+.bakopt input { width: 16px; height: 16px; accent-color: var(--legend); margin: 1px 0 0; flex: none; }
+.bakopt b { display: block; font-size: 13.5px; font-weight: 600; }
+.bakopt small { display: block; margin-top: 2px; font-size: 12.5px; line-height: 1.4; color: var(--legend); }
+.cfmdlg p.fine { margin: 10px 0 0; padding-top: 10px; border-top: 1px solid var(--row); font-size: 12px; color: var(--legend-dim); }
 .pindlg input { width: 100%; height: 38px; border-radius: 6px; border: 1px solid var(--legend); background: var(--lcd); color: var(--lcd-ink); font: 700 16px/1 var(--mono); padding: 0 10px; letter-spacing: .2em; }
 .pindlg .row, .cfmdlg .row { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
 .slotmsg { margin: 8px 2px 0; min-height: 18px; font-size: 13px; color: var(--legend); display: flex; gap: 10px; align-items: center; }
@@ -736,7 +751,7 @@ dt { color: var(--legend-dim); } dd { margin: 0; overflow-wrap: anywhere; } dd.n
         <div class="hrow" id="hr0"><i class="lamp"></i><div class="hd"><span class="nm"></span><span class="st"></span></div><div class="hctl inl" id="hostrow"></div><span class="dt"></span></div>
         <div class="hrow" id="hr1"><i class="lamp"></i><div class="hd"><span class="nm"></span><span class="st"></span></div><span class="dt"></span><div class="hctl rfpow" id="rfpow"></div></div>
         <div class="hrow" id="hr2"><i class="lamp"></i><div class="hd"><span class="nm"></span><span class="st"></span></div><span class="dt"></span><div class="hctl master" id="master"></div></div>
-        <div class="hrow" id="hr3"><i class="lamp"></i><div class="hd"><span class="nm">Pi</span><span class="st"></span></div><div class="hctl inl" id="power"></div><span class="dt"></span><div class="hctl" id="pibox"></div></div>
+        <div class="hrow" id="hr3"><i class="lamp"></i><div class="hd"><span class="nm">Pi</span><span class="st"></span></div><div class="hctl inl" id="power"></div><span class="dt"></span><div class="hctl pim" id="pistat"></div><div class="hctl" id="pibox"></div></div>
         <div class="hrow" id="hr4"><i class="lamp"></i><div class="hd"><span class="nm">dmrdash</span><span class="st"></span></div><div class="hctl inl" id="updrow"></div><span class="dt"></span></div>
       </div>
     </div>
@@ -825,6 +840,8 @@ dt { color: var(--legend-dim); } dd { margin: 0; overflow-wrap: anywhere; } dd.n
   </form>
 </dialog>
 
+<dialog class="cfmdlg bakdlg" id="bakdlg" aria-labelledby="baktitle"></dialog>
+
 <script>
 "use strict";
 const ICONS = {
@@ -849,6 +866,7 @@ const ICONS = {
   update: '<path d="M8 2v8M4.5 6.5L8 10l3.5-3.5"/><path d="M2.5 11.5v2h11v-2"/>',
   file: '<path d="M9.5 1.5H4a1 1 0 0 0-1 1v11a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V5z"/><path d="M9.5 1.5V5H13M5.5 8.5h5M5.5 11h3.5"/>',
   back: '<path d="M10 3L5 8l5 5"/>',
+  archive: '<rect x="2" y="2.5" width="12" height="3.5" rx="1"/><path d="M3 6v6.5a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V6M6.5 9h3"/>',
   copy: '<rect x="5.5" y="5.5" width="8" height="8" rx="1.2"/><path d="M10.5 3.5V3a1 1 0 0 0-1-1H3a1 1 0 0 0-1 1v6.5a1 1 0 0 0 1 1h.5"/>',
 };
 function icon(name) {
@@ -903,6 +921,10 @@ function health() {
       net === "connected" ? "on" : (net === "connecting" || net === "unknown") ? "warn" : "fail", net,
       (S.network.since ? "since " + hhmmss(S.network.since).slice(0, 5) + (net === "connected" ? "" : since(S.network)) : "no news from DMRHost yet")],
   ];
+  // the Pi's own row: its uptime while all is well, else its worst problem in the server's words
+  const prob = ((S.pi || {}).problems || [])[0];
+  leds.push(["Pi", prob ? (prob.level === "bad" ? "fail" : "warn") : "on", prob ? prob.title.replace(/^Pi (is )?/, "") : S.booted ? "Up " + ago(S.booted) : "",
+    (S.hostname || "") + (S.ip ? " · " + S.ip : "")]);
   let alarm = null;
   if (offline) alarm = ["Dashboard can't reach the Pi", "Last update " + ago(lastOk) + " ago. Showing the last known state."];
   else if (host === "stopped") alarm = ["DMRHost is stopped", "The hotspot isn't running. Check it with: systemctl status dmrhost"];
@@ -911,6 +933,7 @@ function health() {
     alarm = ["BrandMeister link " + (net === "login failed" ? "login failed" : "lost"),
       (net === "login failed" ? "The master rejected the hotspot password. " : "Retrying the master since " + ago(S.network.since) + " ago. ")
       + "RF still works locally; nothing reaches the network."];
+  else if (prob && prob.level === "bad") alarm = [prob.title, prob.text];
   if (S.master && S.master.target) alarm = ["Moving to master " + S.master.target, "DMRHost restarts and logs in again; the link is down for a few seconds."];
   if (S.rflevel && S.rflevel.target != null) alarm = ["Setting RF power to " + S.rflevel.target + "%", "DMRHost restarts with it; off the air for a few seconds."];
   if (S.config && S.config.op) alarm = S.config.op === "apply"
@@ -941,8 +964,7 @@ function renderStrip() {
   btn.setAttribute("aria-label", "Hotspot status: " + leds.map((l) => l[0] + " " + l[2]).join(", ") + (offline ? " (no update from the Pi)" : ""));
   fill(btn, h("i", { class: "lamp " + worst[1] }), h("span", { class: "lg" }, why && !offline ? worst[0] : "Hotspot"), why ? h("span", { class: "why" }, why) : null, icon("chev"));
   // rows are updated in place, never rebuilt, so a poll can't close the master list or eat a typed ID
-  const pi = [S.booted ? "Up " + ago(S.booted) : "", (S.hostname || "") + (S.ip ? " · " + S.ip : "")];
-  [...leds, ["Pi", offline ? "warn" : "on", pi[0], pi[1]]].forEach(([l, c, word, dt], i) => {
+  leds.forEach(([l, c, word, dt], i) => {
     const row = $("hr" + i);
     row.className = "hrow " + c;
     row.querySelector(".lamp").className = "lamp " + c;
@@ -1514,6 +1536,23 @@ function renderPower() {
     ui.ssh ? sshPanel() : null);
 }
 
+/* ---------------- the Pi's own readings ---------------- */
+const bytes = (b) => b >= 2 ** 30 ? (b / 2 ** 30).toFixed(1) + " GB" : Math.round(b / 2 ** 20) + " MB";
+function renderPi() {
+  const P = S.pi || {}, lv = P.level || {};
+  const item = (key, label, value, title, mark) => h("span", { class: lv[key] && lv[key] !== "ok" ? lv[key] : mark, title }, label, h("b", {}, value));
+  const used = (x, free) => Math.round(100 * (1 - free / x.total)) + "%";
+  fill($("pistat"),
+    P.temp != null ? item("temp", "CPU", P.temp.toFixed(0) + " °C", "CPU temperature. It slows itself down at 80 °C.") : null,
+    // the firmware's since-boot flag shows amber here, but only under-voltage right now lights the lamp
+    P.power ? item("power", "Power", lv.power === "bad" ? "under-voltage" : lv.power === "warn" ? "CPU held back" : P.power.dipped ? "dipped since boot" : "OK",
+      "The Pi firmware's under-voltage and throttling flags", P.power.dipped ? "warn" : null) : null,
+    P.wifi ? item("wifi", "Wi-Fi", String(P.wifi.dbm).replace("-", "−") + " dBm", "Signal on " + P.wifi.iface + ". Below −75 dBm calls can break up.") : null,
+    P.mem ? item("mem", "Memory", used(P.mem, P.mem.avail), bytes(P.mem.avail) + " free of " + bytes(P.mem.total)) : null,
+    P.disk ? item("disk", "SD card", used(P.disk, P.disk.free), bytes(P.disk.free) + " free of " + bytes(P.disk.total)) : null,
+    P.load ? h("span", { title: "Load over 1, 5 and 15 minutes: " + P.load.join(", ") + " on " + P.cores + " core" + (P.cores === 1 ? "" : "s") }, "Load", h("b", {}, P.load[0].toFixed(2))) : null);
+}
+
 /* ---------------- SSH: the command, an ssh:// link for an SSH app, and the console ---------------- */
 // the user from "ssh_user", at whatever name or address this page was opened with
 const sshTarget = () => (S.ssh && S.ssh.user ? S.ssh.user + "@" : "") + location.hostname;
@@ -1651,7 +1690,8 @@ function renderUpdate() {
     : u.checked ? "checked " + ago(u.checked) + " ago"
     : !u.packaged ? "updates need the dmrdash package" : !u.check ? "update check off" : "not checked yet");
   const off = !!ui.busy || !!ui.power || u.updating;
-  fill($("updrow"), u.can && u.available
+  fill($("updrow"), h("button", { class: "key sm act", id: "bakopen", type: "button", disabled: !!ui.busy || !!ui.power, onclick: bakOpen }, icon("archive"), "Backup"),
+    u.can && u.available
     ? h("button", { class: "key sm act", id: "updgo", type: "button", disabled: off, onclick: updateAct }, icon("update"), u.updating ? "Updating…" : "Update")
     : u.packaged ? h("button", { class: "key sm act", id: "updcheck", type: "button", disabled: off, onclick: updateCheck }, ui.busy === "updcheck" ? "Checking…" : "Check")
     : null);
@@ -1678,6 +1718,91 @@ async function updateAct() {
     if (!ok) say(0, j.error || "Failed (HTTP " + status + ")", true);
   } catch (e) { say(0, "Can't reach the dashboard on the Pi", true); }
   ui.busy = null; await poll();
+}
+
+/* ---------------- backup and restore ----------------
+   One JSON file: the presets, MMDVM.ini with its passwords masked, and the dashboard's settings without the API key and PIN.
+   Restore puts back the presets and, through the editor's own path, MMDVM.ini; the settings are there to read. */
+const BK = { file: null, name: "", err: null, busy: false, presets: true, ini: true };
+function bakOpen() {
+  if (ui.busy) return;
+  ui.menu[5] = false; syncInfo();
+  Object.assign(BK, { file: null, name: "", err: null, busy: false, presets: true, ini: true });
+  bakRender(); $("bakdlg").showModal(); focusId("bakclose");
+}
+const bakHas = () => ({ presets: Array.isArray(BK.file.presets), ini: !!(BK.file.mmdvm_ini && typeof BK.file.mmdvm_ini.text === "string") });
+function bakRender() {
+  const d = $("bakdlg"), b = BK.file, err = BK.err ? h("p", { class: "bad", role: "alert" }, BK.err) : null;
+  if (!b) return fill(d,
+    h("h3", { class: "lg", id: "baktitle" }, "Backup"),
+    h("p", {}, "One file with your talkgroup presets, MMDVM.ini and the dashboard's settings. Passwords, the API key and the PIN are left out of it."), err,
+    h("input", { id: "bakfile", type: "file", accept: ".json,application/json", hidden: true, onchange: bakPick }),
+    h("div", { class: "row" },
+      h("button", { class: "key sm act", type: "button", id: "bakclose", onclick: () => d.close() }, "Close"),
+      h("button", { class: "key sm act", type: "button", id: "bakrestore", disabled: BK.busy, onclick: () => $("bakfile").click() }, "Restore from a file…"),
+      h("button", { class: "key sm act", type: "button", id: "bakdown", disabled: BK.busy, onclick: bakDownload }, icon("update"), BK.busy ? "Saving…" : "Download")));
+  const has = bakHas(), cur = (S.presets || []).length, n = has.presets ? b.presets.length : 0;
+  const opt = (key, title, why) => h("label", { class: "bakopt" + (has[key] ? "" : " off") },
+    h("input", { type: "checkbox", id: "bak-" + key, checked: has[key] && BK[key], disabled: !has[key] || BK.busy, onchange: (e) => { BK[key] = e.target.checked; bakRender(); focusId("bak-" + key); } }),
+    h("span", {}, h("b", {}, title), h("small", {}, has[key] ? why : "Not in this file.")));
+  const when = Number.isFinite(b.created) ? new Date(b.created * 1000).toLocaleString([], { dateStyle: "medium", timeStyle: "short" }) : "";
+  fill(d,
+    h("h3", { class: "lg", id: "baktitle" }, "Restore from backup"),
+    h("p", { class: "from" }, [typeof b.hostname === "string" ? b.hostname : BK.name, when, typeof b.version === "string" ? "dmrdash " + b.version : ""].filter(Boolean).join(" · ")),
+    opt("presets", "Talkgroup presets", n + " in the file replace" + (n === 1 ? "s" : "") + " the " + cur + " here. Your static talkgroups don't change until you apply one."),
+    opt("ini", "MMDVM.ini", "DMRHost restarts with it: off the air for a few seconds, and a call in progress is cut. Passwords stay as they are on this Pi."),
+    h("p", { class: "fine" }, "The dashboard's own settings in the file are for reference. Restore doesn't change /etc/dmrdash.conf."), err,
+    h("div", { class: "row" },
+      h("button", { class: "key sm act", type: "button", id: "bakclose", onclick: () => d.close() }, "Cancel"),
+      h("button", { class: "key sm act confirm", type: "button", id: "bakgo", disabled: BK.busy || !((has.presets && BK.presets) || (has.ini && BK.ini)), onclick: bakRestore },
+        BK.busy ? "Restoring…" : "Restore")));
+}
+async function bakPick(e) {
+  const f = e.target.files[0];
+  if (!f) return;
+  BK.err = null;
+  try {
+    if (f.size > 300000) throw new Error();
+    const b = JSON.parse(await f.text());
+    if (!b || b.dmrdash_backup !== 1) throw new Error();
+    BK.file = b; BK.name = f.name;
+  } catch (x) { BK.err = f.name + " isn't a dmrdash backup."; }
+  bakRender(); focusId("bakclose");
+}
+async function bakDownload() {
+  if (BK.busy) return;
+  BK.busy = true; BK.err = null; bakRender();
+  try {
+    const { ok, status, j } = await post({ action: "backup" });
+    if (ok) {
+      const a = h("a", { href: URL.createObjectURL(new Blob([JSON.stringify(j.backup, null, 1) + "\n"], { type: "application/json" })), download: j.name });
+      document.body.append(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 30000);
+      $("bakdlg").close();
+      say(0, "Saved " + j.name + (j.note ? ". " + j.note : ""), !!j.note);
+    } else BK.err = j.error || "Failed (HTTP " + status + ")";
+  } catch (e) { BK.err = "Can't reach the dashboard on the Pi"; }
+  BK.busy = false; bakRender(); render(true);
+}
+async function bakRestore() {
+  if (BK.busy) return;
+  const has = bakHas();
+  BK.busy = true; BK.err = null; bakRender();
+  try {
+    const { ok, status, j } = await post({ action: "restore", backup: BK.file, presets: has.presets && BK.presets, ini: has.ini && BK.ini });
+    if (ok) {
+      const parts = [j.presets != null ? "Restored " + j.presets + " preset" + (j.presets === 1 ? "" : "s") : null,
+        j.ini === "sent" ? "MMDVM.ini is being written" : j.ini === "same" ? "MMDVM.ini already matches the backup" : null].filter(Boolean);
+      const prev = j.previous;
+      const undo = prev ? () => { ui.msg[0] = null; presetRun({ action: "restore", backup: { dmrdash_backup: 1, presets: prev }, presets: true }, () => say(0, "Put your previous presets back")); } : null;
+      $("bakdlg").close();
+      say(0, parts.join(". "), false, undo);
+      BK.busy = false; await poll(); render(true);
+      return;
+    }
+    BK.err = j.error || "Failed (HTTP " + status + ")";
+  } catch (e) { BK.err = "Can't reach the dashboard on the Pi"; }
+  BK.busy = false; bakRender();
 }
 
 /* ---------------- RF power ---------------- */
@@ -2436,7 +2561,7 @@ function render(force) {
   renderStrip();
   renderGlobal(force);
   for (const n of [1, 2]) renderVfo(n, force);
-  renderLog(); renderBer(force); renderStation(); renderEvents(); renderMaster(force); renderRfLevel(); renderPower(); renderUpdate();
+  renderLog(); renderBer(force); renderStation(); renderEvents(); renderMaster(force); renderRfLevel(); renderPower(); renderPi(); renderUpdate();
   cfgOutcome(); if ($("cfgbar")) cfgBar();
   if (focused && $(focused)) $(focused).focus();
 }
@@ -2878,6 +3003,7 @@ $("tgdlg").addEventListener("click", (e) => { if (dlgDown && e.target === $("tgd
 $("ibtn").prepend(icon("info"));
 $("hbtn").addEventListener("click", () => { ui.menu[5] = !ui.menu[5]; if (!ui.menu[5]) ui.ssh = false; syncInfo(); if (S) renderPower(); });
 $("shclose").prepend(icon("x"));
+$("bakdlg").addEventListener("close", () => focusId("hbtn"));
 $("shclose").addEventListener("click", () => { shellClose(); focusId("hbtn"); });
 $("shagain").addEventListener("click", () => { SH.term.reset(); SH.term.focus(); shellConnect(); });
 $("shdlg").addEventListener("cancel", (e) => e.preventDefault());

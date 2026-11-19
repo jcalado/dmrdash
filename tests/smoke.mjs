@@ -64,6 +64,25 @@ try {
   if (!(await page.textContent("#powtitle")).includes("99.0.0")) fail("update confirmation lacks the version");
   await page.click("#powok");
   await page.waitForFunction(() => /Updating dmrdash to 99\.0\.0/.test(document.querySelector("#alarm").textContent));
+  // the Pi row has this machine's readings; Backup downloads one file with no secret in it, and takes it back
+  await page.click("#hbtn");
+  const stat = await page.textContent("#pistat");
+  if (!/Memory\d+%/.test(stat) || !/SD card\d+%/.test(stat)) fail("Pi row lacks its readings: " + stat);
+  await page.click("#bakopen");
+  await page.waitForSelector("#bakdlg[open]");
+  const [dl] = await Promise.all([page.waitForEvent("download"), page.click("#bakdown")]);
+  const bak = readFileSync(await dl.path(), "utf8"), parsed = JSON.parse(bak);
+  if (!/^dmrdash-.+\.json$/.test(dl.suggestedFilename())) fail("backup name: " + dl.suggestedFilename());
+  if (bak.includes("s3cret") || "pin" in parsed.conf || "api_key" in parsed.conf) fail("the backup holds a secret");
+  if (!parsed.mmdvm_ini.text.includes("RXOffset=-350")) fail("the backup lacks MMDVM.ini");
+  await page.waitForFunction(() => !document.querySelector("#bakdlg").open);
+  await page.click("#hbtn");
+  await page.click("#bakopen");
+  await page.setInputFiles("#bakfile", { name: "notes.json", mimeType: "application/json", buffer: Buffer.from("{}") });
+  await page.waitForFunction(() => /isn't a dmrdash backup/.test(document.querySelector("#bakdlg").textContent));
+  await page.setInputFiles("#bakfile", { name: "backup.json", mimeType: "application/json", buffer: Buffer.from(bak) });
+  await page.click("#bakgo");
+  await page.waitForFunction(() => /Restored 0 presets\. MMDVM\.ini already matches/.test(document.querySelector("#gmsg").textContent));
   // last, as it leaves a DMRHost restart pending: the MMDVM.ini editor, with a form edit, a refused value in the text view, then review as a line diff and write
   await page.click("#hbtn");
   await page.click("#cfgopen");

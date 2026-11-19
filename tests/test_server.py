@@ -9,7 +9,9 @@ import json
 import os
 import tempfile
 import threading
+import types
 import unittest
+from unittest import mock
 from http.server import ThreadingHTTPServer
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -662,6 +664,154 @@ class ServerTest(unittest.TestCase):
         cfg.view(ini + ".missing")
         with open(cfg.VIEW) as f:
             self.assertTrue(json.load(f)["error"].startswith("Can't read"))
+
+    def pi_files(self, **text):
+        """Stand-ins for the /proc and /sys files the Pi's health is read from."""
+        d = tempfile.mkdtemp()
+        old = dict(dmrdash.PI_PATHS)
+        files = {"temp": "48312\n", "throttled": "0\n", "meminfo": "MemTotal:  430000 kB\nMemFree: 9 kB\nMemAvailable:  215000 kB\n",
+                 "wireless": "Inter-| sta-|   Quality        |   Discarded packets\n face | tus | link level noise |  nwid\n"
+                             " wlan0: 0000   54.  -56.  -256        0      0      0      0      0        0\n",
+                 "route": "Iface\tDestination\tGateway\tFlags\tRefCnt\tUse\tMetric\tMask\n"
+                          "wlan0\t00000000\t0101A8C0\t0003\t0\t0\t600\t00000000\nwlan0\t0001A8C0\t00000000\t0001\t0\t0\t600\t00FFFFFF\n"}
+        files.update(text)
+        for name, body in files.items():
+            dmrdash.PI_PATHS[name] = os.path.join(d, name)
+            if body is not None:
+                with open(dmrdash.PI_PATHS[name], "w") as f:
+                    f.write(body)
+
+        def put(name, body):
+            with open(dmrdash.PI_PATHS[name], "w") as f:
+                f.write(body)
+        # the SD card isn't this machine's disk
+        disk = mock.patch.object(dmrdash.os, "statvfs", return_value=types.SimpleNamespace(f_blocks=1000, f_frsize=4096, f_bavail=600))
+        disk.start()
+        self.addCleanup(disk.stop)
+
+        def tick():
+            with dmrdash.LOCK:
+                dmrdash.pi_tick(dmrdash.pi_read(), dmrdash.time.time())
+                return dmrdash.pi_state()
+        self.addCleanup(lambda: (dmrdash.PI_PATHS.update(old), dmrdash.PI.update(sample=None, level={}, clean=0, dipped=False),
+                                 dmrdash.STATE["events"].clear()))
+        dmrdash.PI.update(sample=None, level={}, clean=0, dipped=False)
+        dmrdash.STATE["events"].clear()
+        return put, tick
+
+    def test_pi_health_readings(self):
+        put, tick = self.pi_files()
+        self.assertEqual(json.loads(self.req("GET", "/api/state")[1])["pi"], {"level": {}, "problems": [], "worst": "ok"})  # before a sample
+        pi = tick()
+        self.assertEqual((pi["temp"], pi["wifi"], pi["power"]), (48.3, {"iface": "wlan0", "dbm": -56},
+                                                                 {"under": False, "capped": False, "dipped": False}))
+        self.assertEqual(pi["mem"], {"total": 430000 * 1024, "avail": 215000 * 1024})
+        self.assertEqual(pi["disk"], {"total": 4096000, "free": 2457600})
+        self.assertEqual((pi["worst"], pi["problems"], set(pi["level"].values())), ("ok", [], {"ok"}))
+        self.assertFalse(dmrdash.STATE["events"])  # normal is quiet
+        self.assertEqual(json.loads(self.req("GET", "/api/state")[1])["pi"]["temp"], 48.3)
+
+    def test_pi_health_problems_and_events(self):
+        put, tick = self.pi_files()
+        tick()
+        put("temp", "71400\n")
+        pi = tick()
+        self.assertEqual((pi["worst"], pi["problems"][0]["title"]), ("warn", "Pi is running hot"))
+        self.assertEqual(dmrdash.STATE["events"][0]["level"], "W")
+        put("temp", "68500\n")  # under the threshold, but not clear of it: still hot, and no new event
+        self.assertEqual(tick()["level"]["temp"], "warn")
+        self.assertEqual(len(dmrdash.STATE["events"]), 1)
+        put("temp", "82000\n")
+        put("throttled", "0x50005\n")  # under-voltage and throttled, now and since boot
+        pi = tick()
+        self.assertEqual([(p["key"], p["level"]) for p in pi["problems"]], [("power", "bad"), ("temp", "bad")])
+        self.assertIn("5 V 2.5 A", pi["problems"][0]["text"])
+        self.assertEqual([e["level"] for e in dmrdash.STATE["events"]][:2], ["E", "E"])
+        put("temp", "55000\n")
+        put("throttled", "0x50000\n")  # the since-boot flags stay set
+        pi = tick()
+        self.assertEqual((pi["level"]["temp"], pi["level"]["power"]), ("ok", "bad"))  # power holds: under-voltage flickers
+        self.assertEqual(dmrdash.STATE["events"][0]["text"], "Pi temperature back to 55 °C")
+        for _ in range(dmrdash.PI_POWER_HOLD):
+            pi = tick()
+        self.assertEqual((pi["worst"], dmrdash.STATE["events"][0]["text"]), ("ok", "Pi power is steady again"))
+        n = len(dmrdash.STATE["events"])
+        tick()
+        self.assertEqual(len(dmrdash.STATE["events"]), n)
+
+    def test_pi_health_without_a_pi(self):
+        # a board with no firmware flags, on a wire: nothing reported, nothing wrong
+        put, tick = self.pi_files(throttled=None, temp=None, wireless="h\nh\n",
+                                  route="Iface\tDestination\tGateway\tFlags\tRefCnt\tUse\tMetric\tMask\neth0\t00000000\t0101A8C0\t0003\t0\t0\t100\t00000000\n")
+        pi = tick()
+        self.assertEqual((pi["temp"], pi["power"], pi["wifi"], pi["worst"]), (None, None, None, "ok"))
+        # Wi-Fi is there but the wire carries the default route: its signal isn't the hotspot's link
+        put("wireless", "h\nh\n wlan0: 0000   20.  -88.  -256        0      0      0      0      0        0\n")
+        self.assertIsNone(tick()["wifi"])
+        put("route", "Iface\tDestination\tGateway\tFlags\tRefCnt\tUse\tMetric\tMask\nwlan0\t00000000\t0101A8C0\t0003\t0\t0\t600\t00000000\n")
+        pi = tick()
+        self.assertEqual((pi["wifi"]["dbm"], pi["problems"][0]["title"]), (-88, "Very weak Wi-Fi"))
+        # a dip no sample caught: the firmware's since-boot flag is reported once
+        put("throttled", "0x10000\n")
+        tick()
+        tick()
+        self.assertEqual(len([e for e in dmrdash.STATE["events"] if "since it booted" in e["text"]]), 1)
+
+    def test_backup_and_restore(self):
+        pin = {"X-Dmrdash-Pin": "4321"}
+        ini, cfg = self.config_setup()
+        presets = [{"name": "Everyday", "slots": {"1": [91], "2": [268, 2681]}, "drop_dynamic": False}]
+        dmrdash.PRESETS[:] = presets
+        self.addCleanup(lambda: dmrdash.PRESETS.clear())
+        self.assertEqual(self.req("POST", "/api/bm", {"action": "backup"})[0], 401)  # the PIN applies
+        status, data = self.req("POST", "/api/bm", {"action": "backup"}, pin)
+        j = json.loads(data)
+        b = j["backup"]
+        self.assertEqual((status, b["dmrdash_backup"], b["presets"], j["note"]), (200, 1, presets, None))
+        self.assertRegex(j["name"], r"^dmrdash-[\w.-]+-\d{8}-\d{4}\.json$")
+        self.assertNotIn("s3cret", data.decode())  # MMDVM.ini's password
+        self.assertNotIn("4321", data.decode())    # the PIN
+        self.assertNotIn("api_key", b["conf"])
+        self.assertIn("Password = " + dmrdash.MASK, b["mmdvm_ini"]["text"])
+        self.assertEqual(b["conf"]["unit"], "dmrhost")
+
+        restore = lambda **kw: self.req("POST", "/api/bm", dict({"action": "restore", "backup": b}, **kw), pin)
+        self.assertEqual(restore()[0], 400)  # nothing picked
+        self.assertEqual(self.req("POST", "/api/bm", {"action": "restore", "backup": {"presets": []}, "presets": True}, pin)[0], 400)
+        for bad in ([{"name": "x", "slots": {"1": [0]}}], [{"name": "x", "slots": {"1": [True]}}], [{"name": "", "slots": {}}],
+                    [{"name": "x"}], [{"name": "A", "slots": {}}, {"name": "a", "slots": {}}], "x", [{"name": "x", "slots": {}}] * 13):
+            status, data = self.req("POST", "/api/bm", {"action": "restore", "backup": dict(b, presets=bad), "presets": True}, pin)
+            self.assertEqual(status, 400, bad)
+        self.assertEqual(dmrdash.PRESETS, presets)
+
+        # the presets alone: they replace the ones here, and the reply has those, for Undo
+        dmrdash.PRESETS[:] = [{"name": "Other", "slots": {"1": [], "2": [9]}, "drop_dynamic": True}]
+        status, data = restore(presets=True)
+        j = json.loads(data)
+        self.assertEqual((status, j["presets"], j["ini"], j["previous"][0]["name"]), (200, 1, None, "Other"))
+        self.assertEqual(dmrdash.PRESETS, presets)
+        with open(dmrdash.PRESETS_PATH) as f:
+            self.assertEqual(json.load(f), presets)
+
+        # MMDVM.ini as it is: nothing to write
+        self.assertEqual(json.loads(restore(ini=True)[1])["ini"], "same")
+        self.assertIsNone(dmrdash.CONFIG["id"])
+        # the file changed since the backup: restoring writes the backup's, through config.py, and keeps the password
+        with open(ini, newline="") as f:
+            was = f.read()
+        with open(ini, "w", newline="") as f:
+            f.write(was.replace("ColorCode=1", "ColorCode=7"))
+        status, data = restore(ini=True, presets=True)
+        self.assertEqual((status, json.loads(data)["ini"]), (200, "sent"), data)
+        self.helper_runs(cfg, ini)
+        with open(ini, newline="") as f:
+            self.assertEqual(f.read(), was)
+        self.assertIn("ColorCode 1", dmrdash.CONFIG_LAST["text"])
+        # a backup whose MMDVM.ini the editor would refuse changes nothing, the presets included
+        dmrdash.PRESETS[:] = []
+        status, data = self.req("POST", "/api/bm", {"action": "restore", "backup": dict(b, mmdvm_ini={"text": "[Bad\n"}),
+                                                    "ini": True, "presets": True}, pin)
+        self.assertEqual((status, dmrdash.PRESETS), (400, []))
 
 if __name__ == "__main__":
     unittest.main()

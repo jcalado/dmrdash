@@ -12,7 +12,7 @@ One person: the hotspot owner, amateur radio operator CT7BLE, in Portugal. They 
 ## Product Purpose
 dmrdash is a LAN dashboard for a personal BrandMeister DMR hotspot. It is a Raspberry Pi with an MMDVM_HS duplex hat running DMRHost, hotspot ID 268051301. It does three jobs with equal weight:
 - Show who is talking right now on each timeslot, plus recent activity.
-- Confirm the hotspot is healthy: DMRHost, modem, BrandMeister link.
+- Confirm the hotspot is healthy: DMRHost, modem, BrandMeister link, and the Pi itself (heat, power, Wi-Fi, memory, SD card).
 - Manage BrandMeister talkgroups: add or remove static TGs, drop dynamic TGs, stop a call.
 
 Success means: one glance answers "is it working and who's on", and talkgroup changes take seconds without opening BrandMeister SelfCare.

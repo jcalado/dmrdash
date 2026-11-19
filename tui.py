@@ -5,7 +5,9 @@
     dmrdash-tui --url http://dmrhost.local:8080  from another machine
 
 Polls the same /api/state and /api/log the web page uses, so both show the same calls,
-talkgroups and log. Read-only. Standard library only (curses).
+talkgroups and log. The a key opens the changes the page can make that matter over SSH: stop a
+call, apply a preset, add or remove a static talkgroup, drop dynamics, restart DMRHost. They go
+through the same POST as the page's, so the PIN applies. Standard library only (curses).
 
 https://github.com/jcalado/dmrdash - MIT licence
 """
@@ -25,6 +27,8 @@ POLL = 1.0           # seconds between state fetches, like the page
 OFFLINE_AFTER = 10   # no good fetch for this long: say so, and keep showing the last state
 BER_WARN, BER_BAD = 2, 5  # the web page's cut-offs
 MIN_W, MIN_H = 60, 16
+ENTER = (10, 13, curses.KEY_ENTER)
+BACKSPACE = (8, 127, curses.KEY_BACKSPACE)
 
 
 # --- data --------------------------------------------------------------------
@@ -46,6 +50,22 @@ class Feed:
         req = urllib.request.Request(self.url + path, headers={"User-Agent": "dmrdash-tui"})
         with urllib.request.urlopen(req, timeout=5) as r:
             return json.load(r)
+
+    def post(self, body, pin=None):
+        """One change, as the page sends it: (HTTP status, the server's JSON reply)."""
+        headers = {"User-Agent": "dmrdash-tui", "Content-Type": "application/json", "X-Dmrdash": "1"}
+        if pin:
+            headers["X-Dmrdash-Pin"] = pin
+        req = urllib.request.Request(self.url + "/api/bm", data=json.dumps(body).encode(), headers=headers, method="POST")
+        try:
+            with urllib.request.urlopen(req, timeout=90) as r:  # a preset is several BrandMeister calls
+                return r.status, json.load(r)
+        except urllib.error.HTTPError as e:
+            try:
+                reply = json.load(e)
+            except ValueError:
+                reply = None
+            return e.code, reply if isinstance(reply, dict) else {"error": "HTTP %d: %s" % (e.code, e.reason)}
 
     def run(self):
         while True:
@@ -131,6 +151,8 @@ class Screen:
         self.log_back = 0          # log lines scrolled up from the newest
         self.filter = None         # ("call", "CT7BLE") or ("tg", "268")
         self.rows_shown = 0
+        self.pin = None            # the dashboard PIN, once typed, for this run only
+        self.note = None           # (text, attribute, shown until): how the last change went
         self.c = {}
         self.colours()
 
@@ -194,6 +216,10 @@ class Screen:
             ["modem", "on" if modem == "ok" else "warn" if modem == "opening" else "fail"],
             ["BM %s" % master, "on" if net == "connected" else "warn" if net in ("connecting", "unknown") else "fail"],
         ]
+        # the Pi's own health counts only when something is wrong with it, in the server's words
+        pi = ((s.get("pi") or {}).get("problems") or [None])[0]
+        if pi:
+            leds.append([pi["title"].replace("Pi is ", "Pi ", 1), "fail" if pi["level"] == "bad" else "warn"])
         alarm = None
         if offline:
             alarm = "Can't reach %s %s last update %s ago, showing the last known state" % (
@@ -207,6 +233,8 @@ class Screen:
         elif net in ("login failed", "reconnecting", "down", "master closing"):
             alarm = ("BrandMeister login failed %s the master rejected the hotspot password" if net == "login failed"
                      else "BrandMeister link lost %s RF still works locally, nothing reaches the network") % G["sep"]
+        elif pi and pi["level"] == "bad":
+            alarm = "%s %s %s" % (pi["title"], G["sep"], pi["text"])
         return leds, alarm
 
     def subs(self, s, slot):
@@ -459,11 +487,168 @@ class Screen:
             self.put(y + i, 11, fit(line["t"], w - 12), level.get(line["l"], 0))
 
     def footer(self, y):
+        if self.note and time.time() < self.note[2]:
+            return self.put(y, 1, fit(self.note[0], self.scr.getmaxyx()[1] - 2), self.note[1])
         if self.view == "log":
-            keys = "q quit  %s scroll  l last heard" % ("↑↓" if G is UNICODE else "up/down")
+            keys = "q quit  %s scroll  l last heard  a actions" % ("↑↓" if G is UNICODE else "up/down")
         else:
-            keys = "q quit  %s select  f filter call  g filter TG  x clear  l log" % ("↑↓" if G is UNICODE else "up/down")
+            keys = "q quit  %s select  f call  g TG  x clear  l log  a actions" % ("↑↓" if G is UNICODE else "up/down")
         self.put(y, 1, keys, curses.A_DIM)
+
+    # --- changes: each asks at the foot of the screen or in a list over it, while the screen behind stays live ---
+    def say(self, text, bad=False):
+        self.note = (text, self.c["red"] | curses.A_BOLD if bad else self.c["green"], time.time() + (15 if bad else 8))
+
+    def foot(self, text, attr):
+        h, w = self.scr.getmaxyx()
+        self.put(h - 1, 0, " " * w)
+        self.put(h - 1, 1, fit(text, w - 2), attr)
+        self.scr.refresh()
+
+    def confirm(self, question):
+        """True on y. Anything else leaves things as they are."""
+        while True:
+            self.draw()
+            self.foot(question + "  y yes  n no", self.c["yellow"] | curses.A_BOLD)
+            k = self.scr.getch()
+            if k != -1:
+                return k in (ord("y"), ord("Y"))
+
+    def ask(self, prompt, digits=True, secret=False, limit=8):
+        """A line typed at the foot of the screen: the text on Enter, None on Esc."""
+        text = ""
+        while True:
+            self.draw()
+            self.foot("%s %s_" % (prompt, "*" * len(text) if secret else text), curses.A_BOLD)
+            k = self.scr.getch()
+            if k == 27:
+                return None
+            if k in ENTER:
+                return text
+            if k in BACKSPACE:
+                text = text[:-1]
+            elif 32 <= k < 127 and len(text) < limit and (chr(k).isdigit() or not digits):
+                text += chr(k)
+
+    def pick(self, title, items):
+        """A list over the screen: the index of the line chosen with Enter, or None on Esc."""
+        sel = 0
+        while True:
+            self.draw()
+            h, w = self.scr.getmaxyx()
+            room = min(len(items), h - 4)
+            bw = min(w - 2, max(len(title) + 4, max(len(i) for i in items) + 6))
+            y, x = max(0, (h - room - 2) // 2), (w - bw) // 2
+            top = max(0, min(sel - room + 1, len(items) - room))
+            self.box(y, x, room + 2, bw, " %s " % title, self.c["cyan"])
+            for i, item in enumerate(items[top:top + room]):
+                on = top + i == sel
+                self.put(y + 1 + i, x + 1, (" %s %s" % (G["sel"] if on else " ", fit(item, bw - 5))).ljust(bw - 2), curses.A_REVERSE if on else 0)
+            self.foot("%s select  Enter choose  Esc cancel" % ("↑↓" if G is UNICODE else "up/down"), curses.A_DIM)
+            k = self.scr.getch()
+            if k in (27, ord("q")):
+                return None
+            if k in ENTER:
+                return sel
+            sel = (sel + {curses.KEY_UP: -1, ord("k"): -1, curses.KEY_DOWN: 1, ord("j"): 1}.get(k, 0)) % len(items)
+
+    def send(self, body, done):
+        """Make one change, asking for the PIN when the server wants it. The reply when it went through, else None."""
+        for _ in range(4):
+            self.draw()
+            self.foot("Working" + G["more"], curses.A_DIM)
+            try:
+                code, j = self.feed.post(body, self.pin)
+            except (OSError, ValueError) as e:
+                self.say("Can't reach %s: %s" % (self.feed.url, getattr(e, "reason", None) or e), bad=True)
+                return None
+            if code == 401 and j.get("pin"):
+                pin = self.ask("Wrong PIN. Dashboard PIN:" if self.pin else "Dashboard PIN:", digits=False, secret=True, limit=64)
+                self.pin = pin or None
+                if not pin:
+                    self.say("Cancelled: this change needs the dashboard PIN", bad=True)
+                    return None
+                continue
+            if code != 200:
+                self.say(str(j.get("error") or "Failed (HTTP %d)" % code), bad=True)
+                return None
+            if done:
+                self.say(done)
+            return j
+        self.say("Wrong PIN", bad=True)
+        return None
+
+    def actions(self):
+        with self.feed.lock:
+            s = self.feed.state
+        if not s:
+            return
+        items = []
+        if s.get("can_manage"):
+            for n in (1, 2):
+                slot = s["slots"][str(n)]
+                if slot.get("active") and slot.get("source") != "rf":  # like the page: only a network call can be stopped
+                    who = call_of(slot.get("who") or {"id": slot.get("src")})
+                    items.append(("Stop the call on TS%d (%s)" % (n, who), lambda n=n: self.stop_call(n)))
+            if s.get("presets"):
+                items.append(("Apply a preset" + G["more"], lambda: self.apply_preset(s)))
+            items.append(("Add a static talkgroup" + G["more"], lambda: self.add_static(s)))
+            if s["bm"]["static"]:
+                items.append(("Remove a static talkgroup" + G["more"], lambda: self.remove_static(s)))
+            for n in (1, 2):
+                if self.subs(s, n)[1]:
+                    items.append(("Drop the dynamic talkgroups on TS%d" % n, lambda n=n: self.drop_dynamic(n)))
+        if s.get("can_power"):
+            items.append(("Restart DMRHost", self.restart))
+        if not items:
+            return self.say("No changes from here: the server has no SelfCare API key and no power helper", bad=True)
+        i = self.pick("ACTIONS", [label for label, run in items])
+        if i is not None:
+            items[i][1]()
+
+    def stop_call(self, n):
+        if self.confirm("Stop the call on TS%d?" % n):
+            self.send({"action": "dropCallRoute", "slot": n}, "Stopped the call on TS%d" % n)
+
+    def drop_dynamic(self, n):
+        if self.confirm("Drop the dynamic talkgroups on TS%d?" % n):
+            self.send({"action": "dropDynamicGroups", "slot": n}, "Dropped the dynamic talkgroups on TS%d" % n)
+
+    def restart(self):
+        if self.confirm("Restart DMRHost? It cuts any call and is off the air for a few seconds."):
+            self.send({"action": "power", "what": "dmrhost"}, "Restarting DMRHost")
+
+    def apply_preset(self, s):
+        presets = s["presets"]
+        i = self.pick("APPLY PRESET", ["%s   TS1 %s  TS2 %s" % (p["name"], *(" ".join(map(str, p["slots"].get(k, []))) or "-" for k in "12"))
+                                       for p in presets])
+        if i is None:
+            return
+        j = self.send({"action": "presetApply", "name": presets[i]["name"]}, None)
+        if j is None:
+            return
+        changes = ["%s%d on TS%d" % (sign, tg, slot) for sign, key in (("+", "added"), ("-", "removed")) for slot, tg in j.get(key) or []]
+        failed = j.get("failed") or []
+        if failed:
+            return self.say("%s only partly applied: %s" % (presets[i]["name"], failed[0]), bad=True)
+        self.say("Applied %s: %s" % (presets[i]["name"], ", ".join(changes) or "no talkgroup changes"))
+
+    def add_static(self, s):
+        n = self.pick("ADD A STATIC TALKGROUP TO", ["TS1", "TS2"])
+        if n is None:
+            return
+        tg = self.ask("Talkgroup to add to TS%d:" % (n + 1))
+        if tg:
+            self.send({"action": "add", "slot": n + 1, "talkgroup": int(tg)}, "Added TG %s to TS%d" % (self.tg_label(s, tg), n + 1))
+
+    def remove_static(self, s):
+        statics = sorted(s["bm"]["static"], key=lambda t: (int(t.get("slot") or 0), int(t["talkgroup"])))
+        i = self.pick("REMOVE A STATIC TALKGROUP", ["TS%s  %s" % (t.get("slot"), self.tg_label(s, t["talkgroup"])) for t in statics])
+        if i is None:
+            return
+        slot, tg = int(statics[i]["slot"]), int(statics[i]["talkgroup"])
+        if self.confirm("Remove TG %d from TS%d?" % (tg, slot)):
+            self.send({"action": "remove", "slot": slot, "talkgroup": tg}, "Removed TG %s from TS%d" % (self.tg_label(s, tg), slot))
 
     # --- keys ---
     def key(self, k):
@@ -472,6 +657,10 @@ class Screen:
         if k == ord("l"):
             self.view = "log" if self.view == "heard" else "heard"
             self.log_back = 0
+            return True
+        if k == ord("a"):
+            self.note = None
+            self.actions()
             return True
         step = {curses.KEY_UP: -1, ord("k"): -1, curses.KEY_DOWN: 1, ord("j"): 1,
                 curses.KEY_PPAGE: -self.rows_shown, curses.KEY_NPAGE: self.rows_shown}.get(k)
@@ -519,7 +708,7 @@ def run(scr, feed):
 
 def main():
     global G
-    ap = argparse.ArgumentParser(description="Terminal view of a dmrdash server (read-only).")
+    ap = argparse.ArgumentParser(description="Terminal view of a dmrdash server.")
     ap.add_argument("--url", default=os.environ.get("DMRDASH_URL", "http://localhost:8080"),
                     help="dmrdash address (default %(default)s, or $DMRDASH_URL)")
     ap.add_argument("--ascii", action="store_true", help="draw with plain ASCII instead of box characters")

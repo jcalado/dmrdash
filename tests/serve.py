@@ -32,4 +32,6 @@ def kick():
 
 
 dmrdash.CONFIG_KICK[0] = kick
+# no watcher threads here: one sample of this machine's health, so the Pi row has its readings
+dmrdash.pi_tick(dmrdash.pi_read(), dmrdash.time.time())
 ThreadingHTTPServer(("127.0.0.1", int(sys.argv[1])), dmrdash.Handler).serve_forever()

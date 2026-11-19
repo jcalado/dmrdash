@@ -38,8 +38,9 @@ Description: LAN dashboard for BrandMeister DMRHost hotspots
  Live calls per timeslot from the DMRHost journal, last heard, a RAM-only
  live log, static talkgroup management through the BrandMeister API, and an
  RF BER trend with RX offset tuning, BrandMeister master switching, an MMDVM.ini editor,
- restart / shut down of the Pi, and updates from its own apt repo.
- A terminal view, dmrdash-tui, shows the same over SSH.
+ restart / shut down of the Pi, Pi health readings, backup and restore, and
+ updates from its own apt repo.
+ A terminal view, dmrdash-tui, shows the same over SSH and makes the everyday changes.
  Python standard library only; nothing is written to the SD card in normal use.
 CTL
 
